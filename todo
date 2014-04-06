@@ -1,0 +1,7 @@
+Get selector to put components in order based on creation time
+   For example, logic gates should be in this order: And, Or, XOr, Nand, Nor, XNor, Not, Mux, DeMux
+   This currently works for component classes that use BinaryOperator.create or Function.create
+   It does not work correctly for regular class definitions (class NewComp < Component ...)
+
+Change properties around. I don't like the complicated properties method in Component
+   Not really necessary, I think it works correctly now, it just seems messy
