@@ -16,8 +16,8 @@ class Constant < Component
    end
 
    def values=(values)
-      puts "Hey! #{values.inspect} -> #{outputs_count}"
-      values = values[0..outputs_count]
+      puts "Hey! #{values.inspect} -> #{output_count}"
+      values = values[0..output_count]
       outputs.replace(values)
    end
    def values

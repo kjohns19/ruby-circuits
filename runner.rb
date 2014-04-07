@@ -40,9 +40,8 @@ include Circuits
 circuit = Circuits::Circuit.new
 
 const = Circuits::Input::Constant.new(circuit)
-const.value1 = "Hello"
-const.value2 = " "
-const.value3 = "World"
+const.output_count = 3
+const.values = ["Hello", " ", "World"]
 
 add = Circuits::Math::Add.new(circuit)
 add.input_count = 3

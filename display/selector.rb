@@ -15,6 +15,8 @@ class Selector < Gtk::ScrolledWindow
    # Initializes a component selector
    def initialize
       super
+      self.set_size_request(200, -1)
+      self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
 
       # Get all components
       @groups = Group.new
@@ -45,8 +47,6 @@ class Selector < Gtk::ScrolledWindow
 
       # Add tree view
       self.add(@treeview)
-      self.set_size_request(200, 400)
-      self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
 
       @callbacks = []
 

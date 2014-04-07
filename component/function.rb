@@ -3,6 +3,11 @@ require_relative 'component'
 # Main module for all circuit classes
 module Circuits
 
+
+FunctionProperty = Property.create("Function", String, :function, :function=)
+ArgumentCountProperty = Property.create("Arguments", Fixnum, :arg_count, :arg_count=)
+CloneProperty = Property.create("Clone", TrueClass, :use_clone, :use_clone=)
+
 # Base class for many components
 #
 # Variables:
@@ -16,6 +21,10 @@ module Circuits
 # Outputs:
 #     value - The value returned by the function or nil if there was an error
 class Function < Component
+   variable_inputs(1, 10, false)
+   add_property(FunctionProperty.new(nil))
+   add_property(ArgumentCountProperty.new(1..10))
+   add_property(CloneProperty.new(nil))
 
    # Returns a new function class that will uss
    # the specified function when instances' inputs change
@@ -24,25 +33,49 @@ class Function < Component
       klass.function = function
       klass.class_eval %Q(
          def initialize(circuit)
-            super(self.class.function, #{arg_count}, circuit, #{clone})
+            super(circuit) do
+               function = self.class.function
+               arg_count = #{arg_count}
+               use_clone = #{clone}
+            end
          end
       )
       yield klass if block_given?
       return klass
    end
 
+   def function=(function)
+      @call = function.is_a?(Proc) || function.is_a?(Method)
+      input_count = @arg_count + (@call ? 0 : 1)
+   end
    attr_reader :function
 
-   def initialize(function, arg_count, circuit, clone=false)
-      @call = function.is_a?(Proc) || function.is_a?(Method)
-      super(arg_count + (@call ? 0 : 1), 1, circuit) do
-         @function = function
-         @clone = clone
+   def arg_count
+      @arg_count
+   end
+   def arg_count=(count)
+      @arg_count = count
+      input_count = @arg_count + (@call ? 0 : 1)
+   end
+
+   def use_clone
+      @clone
+   end
+   def use_clone=(clone)
+      @clone = clone
+   end
+
+   def initialize(circuit)
+      super(1, 1, circuit) do
          yield if block_given?
       end
    end
 
    def update_outputs
+      if (@function.nil?)
+         outputs[0] = nil
+         return
+      end
       begin
          if @call
             outputs[0] = @function.call(*inputs_current)

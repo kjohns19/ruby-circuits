@@ -7,20 +7,86 @@ module Display
 class ComponentEditor < Gtk::ScrolledWindow
    def initialize
       super
-      self.set_size_request(200, 400)
+      self.set_size_request(200, -1)
       self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
 
-      @box = Gtk::VBox.new
+      @table = Gtk::Table.new(1, 2, true)
 
       @title = Gtk::Label.new("Select A Component")
       @widgets = []
       @instances = Hash.new { |hash, key| hash[key] = key.new(nil) if key }
 
-      @box.pack_start(@title)
+      @table.attach(@title, 0, 2, 0, 1)
 
-      self.add(@box)
+      h_adjust = Gtk::Adjustment.new(0, 0, 100, 1, 1, 200)
+      v_adjust = Gtk::Adjustment.new(0, 0, 100, 1, 1, 300)
+
+      viewport = Gtk::Viewport.new(h_adjust, v_adjust)
+      viewport.add(@table)
+
+      self.add(viewport)
    end
 
+   def set_component_class(component)
+      return if @component == component || component.nil?
+
+      properties = component.properties
+
+      @widgets.each do |ws|
+         @table.remove(ws[0])
+         @table.remove(ws[1])
+      end
+      @widgets = []
+
+      @table.resize(1+properties.length, 2)
+
+      properties.each_with_index do |p, i|
+         add_property(p, i+1)
+      end
+
+      @component = component
+
+      self.show_all
+   end
+
+   def add_property(property, index)
+      puts "Adding property #{property}"
+
+      label = Gtk::Label.new(property.label)
+      entry = get_widget(property)
+
+      @table.attach(label, 0, 1, index, index+1)
+      @table.attach(entry, 1, 2, index, index+1)
+
+      @widgets << [label, entry]
+   end
+
+   def get_widget(property)
+      widget = nil
+
+      type = property.type
+      values = property.values
+
+      puts "Property: #{type} - #{values}"
+
+      if type == String
+         widget = Gtk::Entry.new
+         widget.define_singleton_method(:value) { self.text }
+         widget.define_singleton_method(:value=) { |v| self.text=v }
+      elsif type == Fixnum
+         widget = Gtk::SpinButton.new(values.begin, values.end, 1)
+      elsif type == TrueClass
+         widget = Gtk::CheckButton.new
+         widget.define_singleton_method(:value) { self.active? }
+         widget.define_singleton_method(:value=) { |val| self.active = val }
+      else
+         widget = Gtk::Label.new("Bad!")
+      end
+
+      return widget
+   end
+
+=begin
    def set_component_class(component)
       return if @component == component || component.nil?
 
@@ -29,6 +95,7 @@ class ComponentEditor < Gtk::ScrolledWindow
          @widgets.each do |w|
             property = w[1]
             value = w[0].value
+            puts "Calling setter for #{property}"
             property.set(old, value)
          end
       end
@@ -40,7 +107,7 @@ class ComponentEditor < Gtk::ScrolledWindow
       new = @instances[@component]
 
       component.properties.each do |property|
-         widget = ComponentEditor.property_widget(property)
+         widget = property_widget(property)
 
          widget.value = property.get(new)
 
@@ -51,6 +118,7 @@ class ComponentEditor < Gtk::ScrolledWindow
 
       self.show_all
    end
+=end
 
    def create_component(circuit)
       comp = @component.new(circuit)
@@ -62,7 +130,8 @@ class ComponentEditor < Gtk::ScrolledWindow
       end
    end
 
-   def self.property_widget(property)
+private
+   def property_widget(property)
       setString = lambda do |val|
          if val.nil?
             return ""

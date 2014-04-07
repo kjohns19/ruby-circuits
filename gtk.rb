@@ -35,7 +35,6 @@ selector = Circuits::Display::Selector.new
 editor = Circuits::Display::ComponentEditor.new
 
 selector.select_callback do |comp|
-   puts "Hey there! #{comp}"
    editor.set_component_class(comp)
 end
 
