@@ -35,11 +35,14 @@ end
 
 include Circuits
 
-puts Component.subclasses.inspect
+#puts Component.subclasses.inspect
 
 circuit = Circuits::Circuit.new
 
-const = Circuits::Input::Constant.new(["Hello", " ", "World"], circuit)
+const = Circuits::Input::Constant.new(circuit)
+const.value1 = "Hello"
+const.value2 = " "
+const.value3 = "World"
 
 add = Circuits::Math::Add.new(circuit)
 add.input_count = 3

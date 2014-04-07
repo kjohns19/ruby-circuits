@@ -1,14 +1,14 @@
 module Circuits
 
 class Property
-   attr_reader :label, :type, :bounds, :getter, :setter
+   attr_reader :label, :type, :values, :getter, :setter
 
    def self.create(label, type, getter, setter)
       klass = Class.new(Property)
 
       klass.class_eval %Q(
-         def initialize(bounds)
-            super(#{label.inspect}, #{type}, bounds,
+         def initialize(values)
+            super(#{label.inspect}, #{type}, values,
                   #{getter.inspect}, #{setter.inspect})
          end
       )
@@ -16,10 +16,10 @@ class Property
       return klass
    end
 
-   def initialize(label, type, bounds, getter, setter)
+   def initialize(label, type, values, getter, setter)
       @label = label
       @type = type
-      @bounds = bounds
+      @values = values
       @getter = getter
       @setter = setter
    end
@@ -38,6 +38,10 @@ class Property
       rescue
          nil
       end
+   end
+
+   def to_s
+      "#{self.class.name} - #{values}"
    end
 end
 

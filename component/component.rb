@@ -119,8 +119,8 @@ class Component
       end
    end
 
-   def self.variable_inputs(min, max)
-      add_property(VarInputsProperty.new(min..max))
+   def self.variable_inputs(min, max, property = true)
+      add_property(VarInputsProperty.new(min..max)) if property
       class_eval %Q(
          def input_count=(count)
             return if count == input_count
@@ -135,14 +135,19 @@ class Component
             update_next
          end)
    end
-   def self.variable_outputs(min, max)
-      add_property(VarOutputsProperty.new(min..max))
+   def self.variable_outputs(min, max, property = true)
+      add_property(VarOutputsProperty.new(min..max)) if property
       class_eval %Q(
          def output_count=(count)
             return if count == output_count
             return unless count.between?(#{min}, #{max})
             if count < output_count
                (count...output_count).each { |i| disconnect_outputs(i) }
+               @out_connections.resize(count)
+            else
+               arr = Array.new(count-output_count)
+               arr.map! { |x| Set.new }
+               @out_connections.concat(arr)
             end
             outputs.resize(count)
             @output_count = count
@@ -150,20 +155,14 @@ class Component
    end
 
    def self.add_property(property)
-      @properties = properties
+      self.properties
       @properties << property
    end
 
    def self.properties
-      if @properties.nil?
-         if self == Component
-            @properties = []
-         else
-            puts "I am #{self.name}, super is #{self.superclass}"
-            @properties = Array.new(self.superclass.properties)
-         end
-      end
-      return @properties
+      @properties ||= []
+      return @properties if self == Component
+      return superclass.properties + @properties
    end
 
    def self.creation_time=(time)

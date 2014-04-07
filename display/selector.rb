@@ -9,11 +9,12 @@ module Circuits
 module Display
 
 # GTK component to select circuit components
-class Selector
+class Selector < Gtk::ScrolledWindow
    attr_reader :selected
 
-   # Initializes a component selector and adds it to the base widget
-   def initialize(base)
+   # Initializes a component selector
+   def initialize
+      super
 
       # Get all components
       @groups = Group.new
@@ -42,12 +43,13 @@ class Selector
 
       @treeview.model = @model
 
-      # Create scrolled window with tree view inside and add it to base
-      scrolled_win = Gtk::ScrolledWindow.new
-      scrolled_win.add(@treeview)
-      scrolled_win.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
-      base.add(scrolled_win)
-      
+      # Add tree view
+      self.add(@treeview)
+      self.set_size_request(200, 400)
+      self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
+
+      @callbacks = []
+
       # Function to change selection when user clicks on component name
       last = nil
       @treeview.signal_connect("cursor-changed") do |tree, e|
@@ -60,9 +62,14 @@ class Selector
          else
             last = iter
             @selected = iter[0].component
+            @callbacks.each { |cb| cb.call(@selected) }
             #puts "Selected: #{@selected}"
          end
       end
+   end
+
+   def select_callback(&callback)
+      @callbacks << callback unless callback.nil?
    end
 
 private
