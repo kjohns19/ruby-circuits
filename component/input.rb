@@ -9,7 +9,7 @@ module Input
 # Component that outputs constant values
 Constant = Component.create do
    variable_outputs(1, 10)
-   add_property(Property.new("Values", Array, [[nil,nil]]*10, :values, :values=))
+   add_property(Property.new("Values", Array, [nil,nil,:output_count], :values, :values=))
 
    def initialize(circuit)
       super(0, 1, circuit)

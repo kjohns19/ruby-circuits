@@ -163,6 +163,7 @@ class Component
          def output_count=(count)
             return if count == output_count
             return unless count.is_a?(Integer) && count.between?(#{min}, #{max})
+            puts "Setting outputs to \#{count}"
             if count < output_count
                (count...output_count).each { |i| disconnect_outputs(i) }
                @out_connections.resize(count)
