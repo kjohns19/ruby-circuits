@@ -6,7 +6,7 @@ module Circuits
 # Module for boolean logic components
 module Logic
 
-class And < Component
+And = Component.create do
    variable_inputs(2, 10)
    def initialize(circuit)
       super(2, 1, circuit)
@@ -23,7 +23,7 @@ class And < Component
    end
 end
 
-class Or < Component
+Or = Component.create do
    variable_inputs(2, 10)
    def initialize(circuit)
       super(2, 1, circuit)
@@ -40,7 +40,7 @@ class Or < Component
    end
 end
 
-class XOr < Component
+XOr = Component.create do
    variable_inputs(2, 10)
    def initialize(circuit)
       super(2, 1, circuit)
@@ -57,31 +57,31 @@ class XOr < Component
    end
 end
 
-class Nand < And
+Nand = Component.create(And) do
    def update_outputs
       super
       outputs[0] = !outputs[0]
    end
 end
 
-class Nor < Or
+Nor = Component.create(Or) do
    def update_outputs
       super
       outputs[0] = !outputs[0]
    end
 end
 
-class XNor < Component
-   variable_inputs(2, 10)
-   def initialize(circuit)
-      super(2, 1, circuit)
+XNor = Component.create(XOr) do
+   def update_outputs
+      super
+      outputs[0] = !outputs[0]
    end
 end
 
 Not = Function.create(:!, 0)
 
-class Mux < Component
-   variable_inputs(2, 10)
+Mux = Component.create do
+   variable_inputs(3, 10)
    def initialize(circuit)
       super(3, 1, circuit)
    end
@@ -100,7 +100,7 @@ class Mux < Component
    end
 end
 
-class DeMux < Component
+DeMux = Component.create do
    variable_outputs(2, 10)
    def initialize(circuit)
       super(2, 2, circuit)

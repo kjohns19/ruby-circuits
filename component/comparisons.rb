@@ -8,7 +8,7 @@ module Comparisons
 
 # This could take only 2 inputs, but why not make it take more?
 # This computes whether all of the inputs are equal
-class Equal < Component
+Equal = Component.create do
    variable_inputs(2, 10)
    def initialize(circuit)
       super(2, 1, circuit)
@@ -28,7 +28,7 @@ end
 
 # This could take only 2 inputs, but why not make it take more?
 # This computes whether any of the inputs are not equal
-class NotEqual < Equal
+NotEqual = Component.create(Equal) do
    def update_outputs
       super
       outputs[0] = !outputs[0]

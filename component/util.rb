@@ -7,16 +7,10 @@ module Circuits
 module Util
 
 # Component to convert inputs to an array
-# Variables:
-#     inputs - The number of inputs (1-10 inclusive)
-# Inputs:
-#     in1-inN - The inputs (may be any values)
-# Outputs:
-#     array - The inputs as an array -- [in1, in2, ..., inN]
-class ToArray < Component
+ToArray = Component.create do
    variable_inputs(1, 10)
-   def initialize(inputs, circuit)
-      super(inputs, 1, circuit)
+   def initialize(circuit)
+      super(1, 1, circuit)
    end
 
    def update_outputs

@@ -4,6 +4,7 @@ require 'gtk2'
 
 require_relative 'component/component'
 
+=begin
 class Class
    old_init = instance_method(:initialize)
    creation_time = 1
@@ -17,10 +18,12 @@ class Class
       return k
    end
 end
+=end
 
 require_relative 'display/selector'
 require_relative 'display/component_area'
 require_relative 'display/component_editor'
+require_relative 'circuit'
 
 
 # Currently this creates a window with the component selector on it
@@ -38,7 +41,11 @@ selector.select_callback do |comp|
    editor.set_component_class(comp)
 end
 
+circuit = Circuits::Circuit.new
+
 display = Circuits::Display::ComponentArea.new
+display.circuit = circuit
+display.editor = editor
 
 
 vpaned = Gtk::VPaned.new

@@ -9,34 +9,23 @@ ArgumentCountProperty = Property.create("Arguments", Fixnum, :arg_count, :arg_co
 CloneProperty = Property.create("Clone", TrueClass, :use_clone, :use_clone=)
 
 # Base class for many components
-#
-# Variables:
-#     function - the function to call when inputs change
-#     args     - the number of arguments for the function
-# Inputs:
-#     in1-inN - If the function is a Proc, lambda, or method,
-#               in1-inN are used as arguments to the function
-#               If the function is a symbol, the function is sent as
-#               as a message to the in1 with in2-inN as arguments
-# Outputs:
-#     value - The value returned by the function or nil if there was an error
 class Function < Component
    variable_inputs(1, 10, false)
-   add_property(FunctionProperty.new(nil))
-   add_property(ArgumentCountProperty.new(1..10))
-   add_property(CloneProperty.new(nil))
+   add_property FunctionProperty.new(nil, false)
+   add_property ArgumentCountProperty.new([1,10,1], false)
+   add_property CloneProperty.new(nil, false)
 
    # Returns a new function class that will uss
    # the specified function when instances' inputs change
    def self.create(function, arg_count, clone=false)
-      klass = Class.new(Function)
+      klass = Component.create(Function)
       klass.function = function
       klass.class_eval %Q(
          def initialize(circuit)
             super(circuit) do
-               function = self.class.function
-               arg_count = #{arg_count}
-               use_clone = #{clone}
+               self.function = self.class.function
+               self.arg_count = #{arg_count}
+               self.use_clone = #{clone}
             end
          end
       )
@@ -45,9 +34,12 @@ class Function < Component
    end
 
    def function=(function)
+      function = function.to_sym if function.is_a? String
       @call = function.is_a?(Proc) || function.is_a?(Method)
-      input_count = @arg_count + (@call ? 0 : 1)
+      input_count = @arg_count + (@call ? 0 : 1) if @arg_count
+      @function = function
    end
+
    attr_reader :function
 
    def arg_count
@@ -67,6 +59,9 @@ class Function < Component
 
    def initialize(circuit)
       super(1, 1, circuit) do
+         self.function = :+
+         self.arg_count = 1
+         self.use_clone = false
          yield if block_given?
       end
    end
@@ -103,32 +98,22 @@ class Function < Component
 end
 
 # Base class for many components
-#
-# Variables:
-#     function - the binary function to call when inputs change
-#     inputs   - the number of inputs
-# Inputs:
-#     in1-inN - If the function is a Proc, lambda, or method,
-#               the function is applied like this:
-#                 f(f(...(f(in1, in2), in3)...),inN)
-#               If the function is a symbol,
-#               the function is applied like this:
-#                 in1.f(in2).f(in3)...f(inN)
-# Outputs:
-#     value - The value returned by the binary function
-#             applied to the inputs or nil if there was an error
 class BinaryOperator < Component
-
+   add_property FunctionProperty.new(nil, false)
    variable_inputs(2, 10)
+   add_property CloneProperty.new(nil, false)
 
    # Returns a new binary operator class that will uss
    # the specified function when instances' inputs change
    def self.create(function, clone=false)
-      klass = Class.new(BinaryOperator)
+      klass = Component.create(BinaryOperator)
       klass.function = function
       klass.class_eval %Q(
          def initialize(circuit)
-            super(self.class.function, circuit, #{clone})
+            super(circuit) do
+               self.function = self.class.function
+               self.use_clone = #{clone}
+            end
          end
       )
       yield klass if block_given?
@@ -137,11 +122,23 @@ class BinaryOperator < Component
 
    attr_reader :function
 
-   def initialize(function, circuit, clone=false)
+   def function=(function)
+      function = function.to_sym if function.is_a? String
+      @function = function
+      @block = @function.is_a?(Proc) || @function.is_a?(Method)
+   end
+
+   def use_clone
+      @clone
+   end
+   def use_clone=(clone)
+      @clone = clone
+   end
+
+   def initialize(circuit)
       super(2, 1, circuit) do
-         @function = function
-         @clone = clone
-         @block = @function.is_a?(Proc) || @function.is_a?(Method)
+         self.function = :+
+         self.use_clone = false
          yield if block_given?
       end
    end

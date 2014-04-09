@@ -6,7 +6,11 @@ module Circuits
 # Module for memory components
 module Memory
 
-class DLatch < Component
+ValueProperty = Property.create("Value", nil, :value, :value=)
+
+DLatch = Component.create do
+   add_property ValueProperty.new(nil)
+
    def initialize(circuit)
       super(2, 1, circuit)
    end
@@ -20,7 +24,9 @@ class DLatch < Component
    end
 end
 
-class DFlipFlop < Component
+DFlipFlop = Component.create do
+   add_property ValueProperty.new(nil)
+
    def initialize(circuit)
       super(2, 1, circuit)
    end

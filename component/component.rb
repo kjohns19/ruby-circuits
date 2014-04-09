@@ -20,18 +20,38 @@ module Circuits
 
 Wire = Struct.new(:input, :output, :comp_in, :comp_out)
 
-VarInputsProperty = Property.create("# of inputs", Fixnum,
+VarInputsProperty = Property.create("Inputs", Fixnum,
                                     :input_count, :input_count=)
-VarOutputsProperty = Property.create("# of outputs", Fixnum,
+VarOutputsProperty = Property.create("Outputs", Fixnum,
                                      :output_count, :output_count=)
 
 class Component
+   @@creation_time = 0
+   creation_time = 0
+
+   def self.create(base = Component, &block)
+      raise ArgumentError,
+            "Base class not a type of Component" unless base <= Component
+
+      klass = Class.new(base)
+      klass.creation_time = @@creation_time
+      klass.class_eval &block if block
+
+      @@creation_time += 1
+
+      return klass
+   end
 
    attr_reader :input_count, :output_count
    attr_reader :inputs_current, :inputs_old
    attr_reader :outputs
    attr_reader :in_connections, :out_connections
    attr_reader :circuit
+   attr_accessor :position
+
+   def label
+      self.class.name.split('::').last
+   end
 
    def initialize(inputs, outputs, circuit)
       raise ArgumentError, "# of inputs must be between 0 and 10" unless
@@ -52,6 +72,8 @@ class Component
 
       @circuit = circuit
       circuit.add self if circuit
+
+      @position = [0,0]
 
       yield if block_given?
       update_outputs
@@ -120,11 +142,11 @@ class Component
    end
 
    def self.variable_inputs(min, max, property = true)
-      add_property(VarInputsProperty.new(min..max)) if property
+      add_property(VarInputsProperty.new([min,max,1])) if property
       class_eval %Q(
          def input_count=(count)
             return if count == input_count
-            return unless count.between?(#{min}, #{max})
+            return unless count.is_a?(Integer) && count.between?(#{min}, #{max})
             if count < input_count
                (count...input_count).each { |i| disconnect_input(i) }
             end
@@ -136,11 +158,11 @@ class Component
          end)
    end
    def self.variable_outputs(min, max, property = true)
-      add_property(VarOutputsProperty.new(min..max)) if property
+      add_property(VarOutputsProperty.new([min,max,1])) if property
       class_eval %Q(
          def output_count=(count)
             return if count == output_count
-            return unless count.between?(#{min}, #{max})
+            return unless count.is_a?(Integer) && count.between?(#{min}, #{max})
             if count < output_count
                (count...output_count).each { |i| disconnect_outputs(i) }
                @out_connections.resize(count)
@@ -155,23 +177,26 @@ class Component
    end
 
    def self.add_property(property)
-      self.properties
+      @properties ||= []
       @properties << property
    end
 
    def self.properties
       @properties ||= []
-      return @properties if self == Component
-      return superclass.properties + @properties
+      return @properties.clone if self == Component
+      props = []
+      self.superclass.properties.each do |property|
+         props << property if property.inherit?
+      end
+      return props + @properties
    end
 
    def self.creation_time=(time)
       @creation_time = time
-      puts "Hey! Creation time of #{time}"
    end
 
    def self.creation_time
-      @creation_time||=0
+      @creation_time
    end
 
 private

@@ -10,208 +10,189 @@ class ComponentEditor < Gtk::ScrolledWindow
       self.set_size_request(200, -1)
       self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
 
-      @table = Gtk::Table.new(1, 2, true)
-
       @title = Gtk::Label.new("Select A Component")
-      @widgets = []
+      @getters = []
       @instances = Hash.new { |hash, key| hash[key] = key.new(nil) if key }
 
-      @table.attach(@title, 0, 2, 0, 1)
 
-      h_adjust = Gtk::Adjustment.new(0, 0, 100, 1, 1, 200)
-      v_adjust = Gtk::Adjustment.new(0, 0, 100, 1, 1, 300)
+      h_adjust = Gtk::Adjustment.new(0, 0, 400, 1, 1, 200)
+      v_adjust = Gtk::Adjustment.new(0, 0, 400, 1, 1, 300)
 
-      viewport = Gtk::Viewport.new(h_adjust, v_adjust)
-      viewport.add(@table)
+      @viewport = Gtk::Viewport.new(h_adjust, v_adjust)
 
-      self.add(viewport)
+      reset_table
+
+      self.add(@viewport)
    end
 
    def set_component_class(component)
       return if @component == component || component.nil?
 
+      #Save values of properties
+      @getters.each do |getter|
+         getter[1].set(@instance, getter[0].call)
+      end
+      @getters = []
+
+      #Get current instance
+      @instance = @instances[component]
+
       properties = component.properties
 
-      @widgets.each do |ws|
-         @table.remove(ws[0])
-         @table.remove(ws[1])
-      end
-      @widgets = []
+      #Remove old widgets from the table
+      reset_table
 
       @table.resize(1+properties.length, 2)
 
-      properties.each_with_index do |p, i|
-         add_property(p, i+1)
+      #Add widgets for each property
+      i = 1
+      properties.each do |p|
+         @table.set_row_spacing(i-1, 20)
+         i = add_property(p, i)
       end
 
       @component = component
 
+      @title.text = component.name
+
       self.show_all
    end
+
+   def create_component(circuit)
+      return nil if @component.nil?
+      comp = @component.new(circuit)
+
+      @getters.each do |arr|
+         getter = arr[0]
+         property = arr[1]
+         property.set(comp, getter.call)
+      end
+
+      return comp
+   end
+
+private
 
    def add_property(property, index)
       puts "Adding property #{property}"
 
-      label = Gtk::Label.new(property.label)
-      entry = get_widget(property)
+      add_widgets = lambda do |ws, i|
+         ws[0].width_request = 64
+         ws[1].width_request = 100
+         @table.attach(ws[0], 0, 1, i, i+1, Gtk::FILL, Gtk::FILL)
+         @table.attach(ws[1], 1, 2, i, i+1, Gtk::FILL, Gtk::FILL)
+      end
 
-      @table.attach(label, 0, 1, index, index+1)
-      @table.attach(entry, 1, 2, index, index+1)
+      widgets, getters = get_widgets(property)
 
-      @widgets << [label, entry]
+      next_index = index + 1
+      
+      if widgets[1].is_a? Array
+         @table.attach(widgets[0], 0, 2, index, index+1, Gtk::FILL, Gtk::FILL)
+         widgets[1].each_with_index { |ws, i| add_widgets.call(ws, index+1+i) }
+         next_index = index + widgets[1].length
+      else
+         add_widgets.call(widgets, index)
+      end
+      @getters << getters
+      return next_index
    end
 
-   def get_widget(property)
-      widget = nil
+   def get_widgets(property)
+      widgets = []
 
       type = property.type
       values = property.values
 
-      puts "Property: #{type} - #{values}"
+      label = Gtk::Label.new(property.label)
+      label.xalign = 0
 
-      if type == String
+      widget, getter, setter = create_widget(type, values)
+
+      val = property.get(@instance)
+      puts "Setting value to #{val.inspect}"
+      setter.call(val)
+
+      return [label, widget], [getter, property]
+   end
+   
+   def create_widget(type, values)
+      if type == nil
+         #Allow string, number, or symbol
          widget = Gtk::Entry.new
-         widget.define_singleton_method(:value) { self.text }
-         widget.define_singleton_method(:value=) { |v| self.text=v }
-      elsif type == Fixnum
-         widget = Gtk::SpinButton.new(values.begin, values.end, 1)
+         widget.xalign = 0
+         getter = lambda do
+            str = widget.text.strip
+            return nil if str.empty?
+            return str[1..-2] if str =~ /^".*"$/
+            return str[1..-1].to_sym if str =~ /^:.+$/
+            return Integer(str) if str =~ /^\d+$/
+            return Float(str) if str =~ /^\d*\.\d+/ || str =~ /^\d+\.$/
+            return nil
+         end
+         setter = lambda do |val|
+            if val.nil?
+               str = ""
+            else
+               str = val.is_a?(String) ? "\"#{val}\"" :
+                     val.is_a?(Symbol) ? ":#{val}" :
+                     val.to_s
+            end
+            widget.text = str
+         end
+      elsif type <= Integer || type <= Float
+         widget = Gtk::SpinButton.new(*values)
+         widget.xalign = 0
+         getter = lambda do
+            val = widget.value
+            return val if type == Float
+            return Integer(val)
+         end
+         setter = widget.method(:value=)
       elsif type == TrueClass
          widget = Gtk::CheckButton.new
-         widget.define_singleton_method(:value) { self.active? }
-         widget.define_singleton_method(:value=) { |val| self.active = val }
-      else
-         widget = Gtk::Label.new("Bad!")
-      end
-
-      return widget
-   end
-
-=begin
-   def set_component_class(component)
-      return if @component == component || component.nil?
-
-      old = @instances[@component]
-      if old
-         @widgets.each do |w|
-            property = w[1]
-            value = w[0].value
-            puts "Calling setter for #{property}"
-            property.set(old, value)
+         getter = widget.method(:active?)
+         setter = widget.method(:active=)
+      elsif type == String || type == Symbol
+         widget = Gtk::Entry.new
+         widget.xalign = 0
+         getter = lambda { type == String ? widget.text : widget.text_to_sym }
+         setter = lambda { |val| widget.text = val.to_s }
+      elsif type <= Array
+         count = values.length
+         widget = []
+         gs = []
+         ss = []
+         values.each_with_index do |value, i|
+            w, g, s = create_widget(value[0], value[1])
+            widget << [Gtk::Label.new("#{i+1}:"), w]
+            gs << g
+            ss << s
          end
-      end
-
-      @title.text = component.name
-      @widgets.each { |w| @box.remove(w[0]) }
-      @widgets = []
-      @component = component
-      new = @instances[@component]
-
-      component.properties.each do |property|
-         widget = property_widget(property)
-
-         widget.value = property.get(new)
-
-         @box.pack_start(widget)
-
-         @widgets << [widget, property]
-      end
-
-      self.show_all
-   end
-=end
-
-   def create_component(circuit)
-      comp = @component.new(circuit)
-
-      @widgets.each do |arr|
-         widget = arr[0]
-         property = arr[1]
-         property.set(comp, widget.value)
-      end
-   end
-
-private
-   def property_widget(property)
-      setString = lambda do |val|
-         if val.nil?
-            return ""
-         elsif val.is_a? String
-            return "\"#{val}\""
-         else
-            return val.to_s
-         end
-      end
-      widget = nil
-      puts property.type
-      puts "Hi! #{property}"
-      if property.type == Array
-         widget = Gtk::VBox.new
-         widget.pack_start(Gtk::Label.new(property.label))
-
-
-         value_widgets = []
-         property.values.times do |i|
-            puts "Hey #{i}!"
-            box = Gtk::HBox.new
-            box.pack_start(Gtk::Label.new("#{i+1}:"))
-            entry = Gtk::Entry.new
-
-            box.pack_start(entry)
-            widget.pack_start(box)
-
-            value_widgets << entry
-         end
-
-         widget.define_singleton_method(:value) do
-            values = Array.new(property.values)
-            value_widgets.each_with_index do |val, i|
-               str = val.text.strip
-               next if str.empty?
-
-               match = str.match /^"(?<string>.*)"$/
-               if match
-                  values[i] = match[:string]
-                  next
-               end
-               match = str.match /^[-+]?[0-9]+$/
-               if match
-                  values[i] = Integer(str)
-                  next
-               end
-               values[i] = Float(str) rescue nil
-            end
-            puts "Hey there! Values are #{values.inspect}"
-            return values
-         end
-         widget.define_singleton_method(:value=) do |val|
-            puts "Hello! Values are #{val.inspect}"
-            value_widgets.each_with_index do |v, i|
-               v.text = setString.call(val[i])
-            end
+         getter = lambda { gs.map { |g| g.call } }
+         setter = lambda do |values|
+            values.each_with_index { |v, i| ss[i].call(v) }
          end
       else
-         widget = Gtk::HBox.new
-
-         widget.pack_start(Gtk::Label.new("#{property.label}:"))
-
-         values = property.values
-         entry = nil
-         if values.is_a? Range
-            entry = Gtk::SpinButton.new(values.begin, values.end, 1)
-            widget.define_singleton_method(:value) { entry.value }
-            widget.define_singleton_method(:value=) { |val| entry.value = val }
-         else
-            entry = Gtk::Entry.new
-            widget.define_singleton_method(:value) { entry.text }
-            widget.define_singleton_method(:value=) do |val|
-               entry.text = setString.call(val)
-            end
-         end
-         widget.pack_start(entry)
+         widget = Gtk::Label.new("Invalid")
+         getter = lambda { nil }
+         setter = lambda { |val| }
       end
-      return widget
+
+      return widget, getter, setter
    end
 
+   def reset_table
+      @table.remove(@title) if @table
+      @viewport.remove(@table) if @table
+
+      @table = Gtk::Table.new(1, 2)
+      @table.row_spacings = 4
+      @table.column_spacings = 4
+
+      @table.attach(@title, 0, 2, 0, 1, Gtk::FILL, Gtk::FILL)
+      @viewport.add(@table)
+   end
 end
 
 end

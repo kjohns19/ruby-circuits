@@ -6,17 +6,17 @@ module Circuits
 # Module for components dealing with time
 module Time
 
+DelayProperty = Property.create("Delay", Fixnum, :delay, :delay=)
+
 # Component that outputs its input value after a certain amount of time
-# Variables:
-#     delay - The number of cycles to wait before setting output
-# Inputs:
-#     value - The output will be set to this value after 'delay' cycles
-# Outputs:
-#     value - The delayed output
-class Delay < Component
-   def initialize(delay, circuit)
+Delay = Component.create do
+   add_property(DelayProperty.new([1,1000,1]))
+
+   attr_accessor :delay
+
+   def initialize(circuit)
       super(1, 1, circuit) do
-         @delay = delay
+         @delay = 1
          @values = []
       end
    end
@@ -37,18 +37,14 @@ class Delay < Component
 end
 
 # Component that toggles its output after a certain amount of time
-# Variables:
-#     delay - How often to toggle output. 1 means toggle every cycle
-# Inputs:
-#     pause - When true, pauses the clock from toggling
-#             When changed to false, the clock resumes where it left off
-# Outputs:
-#     value - Either true or false. Is toggled every 'delay' cycles
-class Clock < Component
+Clock = Component.create do
+   add_property(DelayProperty.new([1,1000,1]))
+
    attr_accessor :delay
-   def initialize(delay, circuit)
+
+   def initialize(circuit)
       super(1, 1, circuit) do
-         @delay = delay
+         @delay = 1
          outputs[0] = false
       end
    end
