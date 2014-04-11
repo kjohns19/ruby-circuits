@@ -32,11 +32,12 @@ class Property
    def get(component)
       value = nil
       begin
-         puts "Getting value using #{@getter} on #{component}"
+         #puts "Calling getter #{@getter} on #{component}"
          value = component.send(@getter)
       rescue Exception => e
          puts "Error calling getter #{@getter} on #{component}"
-         puts "Error: #{e}"
+         #puts "Error: #{e}"
+         puts e.backtrace
       end
       value = value.to_s if type == String
       return value
@@ -44,15 +45,13 @@ class Property
 
    def set(component, value)
       value = value.to_s if type == String
+      #puts "Calling setter #{@setter} with #{value.inspect} on #{component}"
       component.send(@setter, value)
    rescue Exception => e
       puts "Error calling setter #{@setter} with #{value} on #{component}"
-      puts "Error: #{e}"
+      #puts "Error: #{e}"
+      puts e.backtrace
       nil
-   end
-
-   def to_s
-      "#{self.class.name} - #{values}"
    end
 end
 

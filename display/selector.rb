@@ -15,7 +15,7 @@ class Selector < Gtk::ScrolledWindow
    # Initializes a component selector
    def initialize
       super
-      self.set_size_request(200, -1)
+      self.set_size_request(200, 300)
       self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
 
       # Get all components
@@ -23,6 +23,7 @@ class Selector < Gtk::ScrolledWindow
       all = ObjectSpace.each_object(Class).select { |k| k < Circuits::Component }
       all.each do |klass|
          names = klass.name.split('::')
+         names.shift
          add_to_group(@groups, names, klass)
       end
 
@@ -52,7 +53,7 @@ class Selector < Gtk::ScrolledWindow
 
       # Function to change selection when user clicks on component name
       last = nil
-      @treeview.signal_connect("cursor-changed") do |tree, e|
+      @treeview.signal_connect('cursor-changed') do |tree, e|
          selection = tree.selection
          iter = selection.selected
          next unless iter

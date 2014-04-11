@@ -8,8 +8,8 @@ module Logic
 
 And = Component.create do
    variable_inputs(2, 10)
-   def initialize(circuit)
-      super(2, 1, circuit)
+   def initialize(circuit, &block)
+      super(2, 1, circuit, &block)
    end
 
    def update_outputs
@@ -25,8 +25,8 @@ end
 
 Or = Component.create do
    variable_inputs(2, 10)
-   def initialize(circuit)
-      super(2, 1, circuit)
+   def initialize(circuit, &block)
+      super(2, 1, circuit, &block)
    end
 
    def update_outputs
@@ -42,8 +42,8 @@ end
 
 XOr = Component.create do
    variable_inputs(2, 10)
-   def initialize(circuit)
-      super(2, 1, circuit)
+   def initialize(circuit, &block)
+      super(2, 1, circuit, &block)
    end
    def update_outputs
       ins = inputs_current
@@ -82,8 +82,17 @@ Not = Function.create(:!, 0)
 
 Mux = Component.create do
    variable_inputs(3, 10)
-   def initialize(circuit)
-      super(3, 1, circuit)
+   def initialize(circuit, &block)
+      super(3, 1, circuit, &block)
+   end
+
+   def input_label(input)
+      case input
+      when 0
+         "Select"
+      else
+         super(input-1)
+      end
    end
 
    def update_outputs
@@ -102,8 +111,17 @@ end
 
 DeMux = Component.create do
    variable_outputs(2, 10)
-   def initialize(circuit)
-      super(2, 2, circuit)
+   def initialize(circuit, &block)
+      super(2, 2, circuit, &block)
+   end
+
+   def input_label(input)
+      case input
+      when 0
+         "Select"
+      else
+         "In"
+      end
    end
 
    def update_outputs

@@ -10,8 +10,8 @@ module Comparisons
 # This computes whether all of the inputs are equal
 Equal = Component.create do
    variable_inputs(2, 10)
-   def initialize(circuit)
-      super(2, 1, circuit)
+   def initialize(circuit, &block)
+      super(2, 1, circuit, &block)
    end
    def update_outputs
       first = inputs_current[0]

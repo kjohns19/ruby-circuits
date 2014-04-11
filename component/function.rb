@@ -5,20 +5,19 @@ module Circuits
 
 
 FunctionProperty = Property.create("Function", String, :function, :function=)
-ArgumentCountProperty = Property.create("Arguments", Fixnum, :arg_count, :arg_count=)
 CloneProperty = Property.create("Clone", TrueClass, :use_clone, :use_clone=)
 
 # Base class for many components
 class Function < Component
    variable_inputs(1, 10, false)
    add_property FunctionProperty.new(nil, false)
-   add_property ArgumentCountProperty.new([1,10,1], false)
+   add_property Property.new("Arguments", Fixnum, [0,9,1], :arg_count, :arg_count=, false)
    add_property CloneProperty.new(nil, false)
 
    # Returns a new function class that will uss
    # the specified function when instances' inputs change
-   def self.create(function, arg_count, clone=false)
-      klass = Component.create(Function)
+   def self.create(function, arg_count, clone=false, &block)
+      klass = Component.create(Function, &block)
       klass.function = function
       klass.class_eval %Q(
          def initialize(circuit)
@@ -26,17 +25,17 @@ class Function < Component
                self.function = self.class.function
                self.arg_count = #{arg_count}
                self.use_clone = #{clone}
+               yield self if block_given?
             end
          end
       )
-      yield klass if block_given?
       return klass
    end
 
    def function=(function)
       function = function.to_sym if function.is_a? String
       @call = function.is_a?(Proc) || function.is_a?(Method)
-      input_count = @arg_count + (@call ? 0 : 1) if @arg_count
+      self.input_count = @arg_count + (@call ? 0 : 1) if @arg_count
       @function = function
    end
 
@@ -47,7 +46,7 @@ class Function < Component
    end
    def arg_count=(count)
       @arg_count = count
-      input_count = @arg_count + (@call ? 0 : 1)
+      self.input_count = @arg_count + (@call ? 0 : 1)
    end
 
    def use_clone
@@ -62,7 +61,7 @@ class Function < Component
          self.function = :+
          self.arg_count = 1
          self.use_clone = false
-         yield if block_given?
+         yield self if block_given?
       end
    end
 
@@ -105,18 +104,18 @@ class BinaryOperator < Component
 
    # Returns a new binary operator class that will uss
    # the specified function when instances' inputs change
-   def self.create(function, clone=false)
-      klass = Component.create(BinaryOperator)
+   def self.create(function, clone=false, &block)
+      klass = Component.create(BinaryOperator, &block)
       klass.function = function
       klass.class_eval %Q(
          def initialize(circuit)
             super(circuit) do
                self.function = self.class.function
                self.use_clone = #{clone}
+               yield self if block_given?
             end
          end
       )
-      yield klass if block_given?
       return klass
    end
 
@@ -139,7 +138,8 @@ class BinaryOperator < Component
       super(2, 1, circuit) do
          self.function = :+
          self.use_clone = false
-         yield if block_given?
+         self.label = "BinaryOp" if self.class == BinaryOperator
+         yield self if block_given?
       end
    end
 

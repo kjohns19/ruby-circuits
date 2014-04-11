@@ -1,6 +1,7 @@
 require 'set'
 
 require_relative '../property'
+require_relative '../display/component_display.rb'
 
 # Add function to resize an array easily
 class Array
@@ -26,6 +27,7 @@ VarOutputsProperty = Property.create("Outputs", Fixnum,
                                      :output_count, :output_count=)
 
 class Component
+include Circuits::Display::ComponentDisplay
    @@creation_time = 0
    creation_time = 0
 
@@ -43,14 +45,22 @@ class Component
    end
 
    attr_reader :input_count, :output_count
-   attr_reader :inputs_current, :inputs_old
+   attr_reader :inputs_next, :inputs_current, :inputs_old
    attr_reader :outputs
    attr_reader :in_connections, :out_connections
    attr_reader :circuit
    attr_accessor :position
+   attr_accessor :label
 
-   def label
-      self.class.name.split('::').last
+   def self.label
+      self.name.split('::').last
+   end
+
+   def input_label(input)
+      input_count == 1 ? "In" : "In#{input+1}"
+   end
+   def output_label(output)
+      output_count == 1 ? "Out" : "Out#{output+1}"
    end
 
    def initialize(inputs, outputs, circuit)
@@ -75,7 +85,9 @@ class Component
 
       @position = [0,0]
 
-      yield if block_given?
+      self.label = self.class.label
+
+      yield self if block_given?
       update_outputs
    end
 
@@ -119,6 +131,7 @@ class Component
       return unless conn
       conn.comp_out.out_connections[conn.output].delete(conn)
       inputs_next[input] = nil
+      in_connections[input] = nil
    end
 
    def disconnect_outputs(output)
@@ -136,8 +149,11 @@ class Component
          @circuit.remove self
          @circuit = nil
       end
-      inputs.new.length.each do |i|
+      input_count.times do |i|
          disconnect_input(i)
+      end
+      output_count.times do |i|
+         disconnect_outputs(i)
       end
    end
 
@@ -200,8 +216,9 @@ class Component
       @creation_time
    end
 
+   add_property(Property.new("Label", String, nil, :label, :label=))
+
 private
-   attr_reader :inputs_next
 
    class Outputs < Array
       def initialize(count, component)

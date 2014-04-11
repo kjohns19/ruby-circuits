@@ -9,8 +9,8 @@ module Util
 # Component to convert inputs to an array
 ToArray = Component.create do
    variable_inputs(1, 10)
-   def initialize(circuit)
-      super(1, 1, circuit)
+   def initialize(circuit, &block)
+      super(1, 1, circuit, &block)
    end
 
    def update_outputs
