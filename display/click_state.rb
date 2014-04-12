@@ -1,3 +1,5 @@
+require_relative 'wire'
+
 module Circuits
 
 module Display
@@ -16,7 +18,8 @@ class Create < Base
       when 1
          comp = @area.editor.create_component(@area.circuit)
          unless comp.nil?
-            comp.position = [event.x, event.y]
+            comp.position = @area.snap(event.x, event.y)
+            p comp.position
             @area.redraw
          end
       when 3
@@ -34,7 +37,8 @@ class Wire < Base
       case event.button
       when 1
          @area.show_wire_menu(event, true) do |comp, i|
-            @area.click_state = WireIn.new(@area, comp, i)
+            wire = Display::Wire.new(@area.circuit, comp.abs_input_pos(i))
+            @area.click_state = WireIn.new(@area, comp, i, wire)
          end
       when 3
          @area.show_wire_menu(event, true) do |comp, i|
@@ -48,20 +52,29 @@ end
 class WireIn < Base
    attr_reader :component, :input
 
-   def initialize(area, component, input)
+   def initialize(area, component, input, wire)
       super(area)
       @component = component
       @input = input
+      @wire = wire
    end
 
    def click(event)
       case event.button
       when 1
-         @area.show_wire_menu(event, false) do |comp, i|
-            @component.connect_input(@input, comp, i)
-            @area.redraw
+         valid = @area.show_wire_menu(event, false) do |comp, i|
+            @wire.add(comp.abs_output_pos(i))
+            @component.connect_input(@input, comp, i, @wire)
+            @area.redraw { |cr| @wire.draw(cr) }
             @area.click_state = Wire.new(@area)
          end
+         unless valid
+            @wire.add(@area.snap(event.x, event.y))
+            @area.redraw { |cr| @wire.draw(cr) }
+         end
+      when 3
+         @wire.remove
+         @area.redraw { |cr| @wire.draw(cr) }
       end
    end
 end

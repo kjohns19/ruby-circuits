@@ -82,7 +82,6 @@ class Function < Component
       rescue
          outputs[0] = nil
       end
-      inputs_current[0] = old if @clone
    end
 
    protected

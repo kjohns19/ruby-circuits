@@ -2,6 +2,7 @@ require 'set'
 
 require_relative '../property'
 require_relative '../display/component_display.rb'
+require_relative '../display/wire.rb'
 
 # Add function to resize an array easily
 class Array
@@ -19,7 +20,18 @@ end
 
 module Circuits
 
-Wire = Struct.new(:input, :output, :comp_in, :comp_out)
+Connection = Struct.new(:input, :output, :comp_in, :comp_out, :wire)
+class Connection
+   attr_reader :input, :output, :comp_in, :comp_out, :wire
+   def initialize(input, output, comp_in, comp_out, wire)
+      @input = input
+      @output = output
+      @comp_in = comp_in
+      @comp_out = comp_out
+      @wire = wire #Display::Wire.new(comp_in.circuit, comp_in.abs_input_pos(input),
+                   #             comp_out.abs_output_pos(output))
+   end
+end
 
 VarInputsProperty = Property.create("Inputs", Fixnum,
                                     :input_count, :input_count=)
@@ -116,10 +128,10 @@ include Circuits::Display::ComponentDisplay
       @circuit.remove_update(self) if @circuit
    end
 
-   def connect_input(input, component, output)
+   def connect_input(input, component, output, wire = nil)
       return unless input.between?(0, input_count-1) && output.between?(0, component.output_count-1)
       disconnect_input(input)
-      conn = Wire.new(input, output, self, component)
+      conn = Connection.new(input, output, self, component, wire)
       in_connections[input] = conn
       component.out_connections[output] << conn
       inputs_next[input] = component.outputs[output]

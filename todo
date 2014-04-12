@@ -1,11 +1,12 @@
-Get selector to put components in order based on creation time
-   For example, logic gates should be in this order: And, Or, XOr, Nand, Nor, XNor, Not, Mux, DeMux
-   This currently works for component classes that use BinaryOperator.create or Function.create
-   It does not work correctly for regular class definitions (class NewComp < Component ...)
+Saving/Loading circuits
+   Modules (loading circuits into other circuits)
+   Saving portions of circuits?
 
-Change properties around. I don't like the complicated properties method in Component
-   Not really necessary, I think it works correctly now, it just seems messy
-   Kind of fixed? It looks a bit nicer at least.
+Resize the circuit area
+   Infinite scrolling? Or at least very large scrolling?
 
-Get component editor to save values when you switch to a different component
-   Have it store an instance for each class and use the property getters/setters to save the values
+Move mode (may be part of other mode)
+   Drag components around
+   Select multiple components
+
+Clone components

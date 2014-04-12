@@ -80,6 +80,22 @@ class Circuit
       remove_all_updates component
       @components.delete component
    end
+
+   def component_at(x, y)
+      components.each do |comp|
+         bounds = comp.bounds
+         return comp if x >= bounds[0] && x <= bounds[0]+bounds[2] &&
+                        y >= bounds[1] && y <= bounds[1]+bounds[3]
+      end
+      return nil
+   end
+
+   def components_within(rect)
+      rect = Gdk::Rectangle.new(*rect) if rect.is_a? Array
+      components.select do |comp|
+         (Gdk::Rectangle.new(*comp.bounds) & rect) != nil
+      end
+   end
 end
 
 end

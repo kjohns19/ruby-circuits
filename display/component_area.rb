@@ -12,7 +12,9 @@ class ComponentArea < Gtk::Frame
       super
       @draw_area = Gtk::DrawingArea.new
       @draw_area.set_size_request(500, 500)
-      @draw_area.signal_connect('expose_event') { redraw }
+      @draw_area.signal_connect('expose_event') do |area, event|
+         redraw(event)
+      end
 
       @draw_area.signal_connect('button_press_event') do |*args|
          button_press(*args)
@@ -23,6 +25,7 @@ class ComponentArea < Gtk::Frame
       @click_state = ClickState::Create.new(self)
 
       self.add(@draw_area)
+      self.show_grid = true
    end
 
    def circuit=(circuit)
@@ -33,49 +36,37 @@ class ComponentArea < Gtk::Frame
    attr_accessor :click_state
    attr_accessor :editor
 
-   def redraw
+   def redraw(event = nil)
       window = @draw_area.window
       return if window.nil?
 
       cr = window.create_cairo_context
 
-      alloc = @draw_area.allocation
+      alloc = self.allocation
 
-      cr.set_source_rgb 1.0, 1.0, 1.0
-      cr.rectangle 0, 0, alloc.width, alloc.height
+      clip = event.nil? ? [0, 0, alloc.width, alloc.height] : event.area.to_a
+
+      cr.set_source_rgb(1.0, 1.0, 1.0)
+      cr.rectangle *clip
       cr.fill
+
+      if @show_grid
+         cr.save do
+            #cr.translate offset stuff here
+            draw_grid(cr, clip)
+         end
+      end
 
       return if @circuit.nil?
 
-      @circuit.components.each do |comp|
-         cr.save
-         cr.translate *comp.position
-         comp.draw(cr)
-         cr.restore
-      end
-      @circuit.components.each do |comp|
-         cr.save
-         cr.translate *comp.position
-         comp.draw_wires(cr)
-         cr.restore
-      end
-      @circuit.components.each do |comp|
-         cr.save
-         cr.translate *comp.position
-         comp.draw_values(cr)
-         cr.restore
-      end
+      components_draw(cr, clip, :draw)
+      components_draw(cr, clip, :draw_wires, false)
+      #components_draw(cr, clip, :draw_values)
+      yield cr if block_given?
    end
 
    def component_at(x, y)
-      return nil if @circuit.nil?
-
-      @circuit.components.each do |comp|
-         bounds = comp.bounds
-         return comp if x >= bounds[0] && x <= bounds[0]+bounds[2] &&
-                        y >= bounds[1] && y <= bounds[1]+bounds[3]
-      end
-      return nil
+      @circuit.nil? ? nil : @circuit.component_at(x,y)
    end
 
    def button_press(widget, event)
@@ -84,10 +75,15 @@ class ComponentArea < Gtk::Frame
       return true
    end
 
+   def snap(x, y)
+      [x.to_i/GRID_SIZE*GRID_SIZE,
+       y.to_i/GRID_SIZE*GRID_SIZE]
+   end
+
    
    def show_wire_menu(event, inputs, &block)
       comp = component_at(event.x, event.y)
-      return if comp.nil?
+      return false if comp.nil?
 
       menu = Gtk::Menu.new
 
@@ -108,12 +104,54 @@ class ComponentArea < Gtk::Frame
 
       menu.show_all
       menu.popup(nil, nil, event.button, event.time)
+      return true
    end
 
    def update
       return if @circuit.nil?
       @circuit.update
       redraw
+   end
+
+   def show_grid=(show)
+      return if show == @show_grid
+      @show_grid = show
+      redraw
+   end
+   attr_reader :show_grid
+
+private
+   GRID_SIZE = 16
+
+   def components_draw(cr, clip, name, translate = true)
+      @circuit.components_within(clip).each do |comp|
+         cr.save do
+            cr.translate *comp.position if translate
+            comp.send(name, cr)
+         end
+      end
+   end
+
+   def draw_grid(cr, clip)
+      # Optimize this to only iterate where we need to
+
+      alloc = self.allocation
+
+      w = alloc.width/GRID_SIZE.to_i
+      h = alloc.height/GRID_SIZE.to_i
+
+      @grid_image ||= Cairo::ImageSurface.from_png('data/grid_cell.png')
+      pattern = Cairo::SurfacePattern.new(@grid_image)
+      pattern.set_extend(Cairo::EXTEND_REPEAT)
+      #cr.scale(1 / ::Math.sqrt(2), 1 / ::Math.sqrt(2))
+      cr.scale(GRID_SIZE, GRID_SIZE)
+
+      matrix = Cairo::Matrix.scale(GRID_SIZE*w, GRID_SIZE*h)
+      pattern.set_matrix(matrix)
+
+      cr.set_source(pattern)
+      cr.rectangle(0, 0, w+1, h+1)
+      cr.fill
    end
 end
 
