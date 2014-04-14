@@ -25,9 +25,6 @@ class Create < Base
          @comp = @area.editor.create_component(@area.circuit)
          unless @comp.nil?
             @comp.position = create_pos(event.x, event.y)
-            str = @comp.serialize
-            puts str
-            puts Component.deserialize(str.split("\n"))
             @area.repaint
          end
       when 3
