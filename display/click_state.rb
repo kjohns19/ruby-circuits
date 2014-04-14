@@ -1,4 +1,4 @@
-require_relative 'wire'
+require_relative '../component/wire'
 
 module Circuits
 
@@ -10,25 +10,50 @@ class Base
    def initialize(area)
       @area = area
    end
+
+   def click(event)
+   end
+
+   def move(window, x, y, state)
+   end
 end
 
 class Create < Base
    def click(event)
       case event.button
       when 1
-         comp = @area.editor.create_component(@area.circuit)
-         unless comp.nil?
-            comp.position = @area.snap(event.x, event.y)
-            p comp.position
-            @area.redraw
+         @comp = @area.editor.create_component(@area.circuit)
+         unless @comp.nil?
+            @comp.position = create_pos(event.x, event.y)
+            str = @comp.serialize
+            puts str
+            puts Component.deserialize(str.split("\n"))
+            @area.repaint
          end
       when 3
          comp = @area.component_at(event.x, event.y)
          unless comp.nil?
             comp.delete
-            @area.redraw
+            @area.repaint
          end
       end
+   end
+
+   def move(window, x, y, state)
+      return if @comp.nil?
+      if (state & Gdk::Window::BUTTON1_MASK) != 0
+         newpos = create_pos(x, y)
+         if newpos != @comp.position
+            @comp.position = newpos
+            @area.repaint
+         end
+      else
+         @comp = nil
+      end
+   end
+
+   def create_pos(x, y)
+      @area.snap(x, y-ComponentArea::GRID_SIZE)
    end
 end
 
@@ -37,25 +62,23 @@ class Wire < Base
       case event.button
       when 1
          @area.show_wire_menu(event, true) do |comp, i|
-            wire = Display::Wire.new(@area.circuit, comp.abs_input_pos(i))
-            @area.click_state = WireIn.new(@area, comp, i, wire)
+            wire = Circuits::Wire.new(comp, i)
+            @area.click_state = WireIn.new(@area, wire)
          end
       when 3
          @area.show_wire_menu(event, true) do |comp, i|
             comp.disconnect_input(i)
-            @area.redraw
+            @area.repaint
          end
       end
    end
 end
 
 class WireIn < Base
-   attr_reader :component, :input
+   attr_reader :wire
 
-   def initialize(area, component, input, wire)
+   def initialize(area, wire)
       super(area)
-      @component = component
-      @input = input
       @wire = wire
    end
 
@@ -63,18 +86,26 @@ class WireIn < Base
       case event.button
       when 1
          valid = @area.show_wire_menu(event, false) do |comp, i|
-            @wire.add(comp.abs_output_pos(i))
-            @component.connect_input(@input, comp, i, @wire)
-            @area.redraw { |cr| @wire.draw(cr) }
+            @wire.connect(comp, i)
+            @wire.comp_in.connect_input(@wire)
+            @area.repaint { |cr| @wire.draw(cr) }
             @area.click_state = Wire.new(@area)
          end
          unless valid
             @wire.add(@area.snap(event.x, event.y))
-            @area.redraw { |cr| @wire.draw(cr) }
+            @area.repaint { |cr| @wire.draw(cr) }
          end
       when 3
          @wire.remove
-         @area.redraw { |cr| @wire.draw(cr) }
+         @area.repaint { |cr| @wire.draw(cr) }
+      end
+   end
+
+   def move(window, x, y, state)
+      @area.repaint do |cr|
+         @wire.add(@area.snap(x, y))
+         @wire.draw(cr)
+         @wire.remove
       end
    end
 end
@@ -97,7 +128,7 @@ class Edit < Base
       dialog.signal_connect('response') do |dialog, id|
          if id == Gtk::Dialog::RESPONSE_ACCEPT
             editor.save_properties(comp)
-            @area.redraw
+            @area.repaint
          end
          dialog.destroy
       end
@@ -116,7 +147,7 @@ class Update < Base
 
       comp.update_inputs
       comp.update_outputs
-      @area.redraw
+      @area.repaint
    end
 end
 

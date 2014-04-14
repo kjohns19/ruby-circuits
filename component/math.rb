@@ -1,4 +1,5 @@
 require_relative 'function'
+require_relative '../property'
 
 # Main module for all circuit classes
 module Circuits
@@ -15,9 +16,13 @@ Modulus  = BinaryOperator.create(:%)
 Power    = BinaryOperator.create(:**)
 Root     = Function.create(Proc.new { |a, b| a**(1.0/b) }, 2)
 Log = Function.create(lambda do |x, base|
-   return Math.log(x) if base.nil?
-   return Math.log(x, base)
-end, 2)
+         return Math.log(x) if base.nil?
+         return Math.log(x, base)
+      end, 2) do
+   def input_label(i)
+      i == 0 ? 'in' : 'base'
+   end
+end
 
 # Trigonometry
 module Trig

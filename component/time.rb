@@ -77,7 +77,7 @@ Clock = Component.create do
    end
 
    def input_label(input)
-      "Pause"
+      "stop"
    end
 
    def update_outputs

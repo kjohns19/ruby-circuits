@@ -10,3 +10,6 @@ Move mode (may be part of other mode)
    Select multiple components
 
 Clone components
+
+Combine wires and connections. At the moment connections hold the port info,
+   while wires hold drawing info

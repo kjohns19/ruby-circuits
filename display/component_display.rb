@@ -1,83 +1,104 @@
 require 'gtk2'
 
+require_relative 'component_area'
+
 module Circuits
 
 module Display
 
 module ComponentDisplay
-   WIDTH = 64
-   PORT_SEP = 16
-   PORT_RADIUS = 8
-   PORT_INSET = 2
+   WIDTH = ComponentArea::GRID_SIZE*3
+   PORT_SEP = ComponentArea::GRID_SIZE
+   PORT_OFFSET = ComponentArea::GRID_SIZE
+   PORT_RADIUS = 3.0
+   PORT_INSET = 0
+   RECT_RADIUS = ComponentArea::GRID_SIZE/2
+   RECT_OFFSET = ComponentArea::GRID_SIZE/2
 
    def draw(cr)
       width, height = self.size
 
       cr.set_source_rgb(1.0, 1.0, 1.0)
-      cr.rounded_rectangle(0, 0, width, height, PORT_RADIUS)
+      cr.rounded_rectangle(0, RECT_OFFSET,
+                           width, height-2*RECT_OFFSET,
+                           RECT_RADIUS)
       cr.fill_preserve
       cr.set_source_rgb(0.0, 0.0, 0.0)
       cr.stroke
 
       cr.select_font_face('Arial', 'normal', 'bold')
 
-      funcs = [[:input_count, :input_pos], [:output_count, :output_pos]]
+      funcs = [['input', true], ['output', false]]
 
-      funcs.each do |f|
-         self.send(f[0]).times do |i|
+      funcs.each do |(pref, label_move)|
+         self.send("#{pref}_count").times do |i|
             cr.set_source_rgb(1.0, 1.0, 1.0)
-            pos = self.send(f[1], i)
+            pos = self.send("#{pref}_pos", i)
             cr.circle(pos[0], pos[1], PORT_RADIUS)
-            cr.fill_preserve
+            cr.fill
             cr.set_source_rgb(0.0, 0.0, 0.0)
+            cr.circle(pos[0], pos[1], PORT_RADIUS)
             cr.stroke
+
+            cr.set_font_size 10
+            cr.set_source_rgb(0.0, 0.0, 0.0)
+            label = self.send("#{pref}_label", i)
+            extents = cr.text_extents(label)
+            x = label_move ? (pos[0]+6) : (pos[0]-6-extents.width)
+            y = pos[1]+3
+
+            cr.move_to(x,y)
+            cr.show_text(label)
          end
       end
 
-      label = self.label
-      extents = cr.text_extents(label)
-      x = width/2 - (extents.width/2 + extents.x_bearing)
-      y = height/2 - (extents.height/2 + extents.y_bearing)
-      cr.move_to(x, y)
-      cr.show_text label
+      #label = self.label
+      #extents = cr.text_extents(label)
+      #x = width/2 - (extents.width/2 + extents.x_bearing)
+      #y = height/2 - (extents.height/2 + extents.y_bearing)
+      #cr.move_to(x, y)
+      #cr.show_text label
    end
 
    def draw_wires(cr)
       cr.set_source_rgb(0.0, 0.0, 0.0)
       cr.set_line_cap(Cairo::LINE_CAP_ROUND)
       self.in_connections.each do |conn|
-         next if conn.nil?
-         conn.wire.draw(cr) unless conn.wire.nil?
+         conn.draw(cr) unless conn.nil?
       end
    end
 
    def draw_values(cr)
-      funcs = [[:input_count, :input_pos, :inputs_current, true],
-               [:output_count, :output_pos, :outputs, false]]
+      draw = lambda do |pos, i, values, move_text|
+         text = self.send(values)[i].inspect
+         
+         extents = cr.text_extents(text)
+         x = move_text ? (pos[0]-10-extents.width) : (pos[0]+10)
+         y = pos[1] - (extents.height/2 + extents.y_bearing)
 
-      funcs.each do |f|
-         self.send(f[0]).times do |i|
-            pos = self.send(f[1], i)
-            text = self.send(f[2])[i].inspect
+         b = 3
+         cr.set_source_rgb(0.9, 0.9, 0.9)
+         cr.rectangle(x-b, y-extents.height-b,
+                        extents.width+extents.x_bearing+b*2, extents.height+b*2)
+         cr.fill
 
-            extents = cr.text_extents(text)
-            if f[3]
-               x = pos[0]-14-extents.width
-            else
-               x = pos[0]+14
-            end
-            y = pos[1] - (extents.height/2 + extents.y_bearing)
+         cr.set_source_rgb(0.0, 0.0, 0.0)
+         cr.move_to(x, y)
+         cr.show_text text
+      end
 
-            b = 3
-            cr.set_source_rgb(0.9, 0.9, 0.9)
-            cr.rectangle(x-b, y-extents.height-b,
-                         extents.width+extents.x_bearing+b*2, extents.height+b*2)
-            cr.fill
+      input_ports_each { |pos, i| draw.call(pos, i, :inputs_current, true) }
+      output_ports_each{ |pos, i| draw.call(pos, i, :outputs, false) }
+   end
 
-            cr.set_source_rgb(0.0, 0.0, 0.0)
-            cr.move_to(x, y)
-            cr.show_text text
-         end
+   def input_ports_each
+      self.input_count.times do |i|
+         yield input_pos(i), i
+      end
+   end
+   def output_ports_each
+      self.output_count.times do |i|
+         yield output_pos(i), i
       end
    end
 
@@ -90,15 +111,15 @@ module ComponentDisplay
    end
 
    def size
-      [WIDTH, 2*PORT_SEP*self.ports]
+      [WIDTH, 2*PORT_OFFSET + PORT_SEP*(self.ports-1)]
    end
 
    def input_pos(input)
-      [PORT_INSET, PORT_SEP*(1+(self.ports-self.input_count)+2*input)]
+      [PORT_INSET, PORT_OFFSET + PORT_SEP*input]
    end
 
    def output_pos(output)
-      [WIDTH-PORT_INSET, PORT_SEP*(1+(self.ports-self.output_count)+2*output)]
+      [WIDTH-PORT_INSET, PORT_OFFSET + PORT_SEP*output]
    end
 
    def abs_input_pos(input)

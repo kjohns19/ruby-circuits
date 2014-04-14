@@ -1,30 +1,47 @@
 require 'gtk2'
 
+require_relative '../application'
+
 module Circuits
 
 module Display
 
-class Menu < Gtk::HBox
+class ToolMenu < Gtk::Toolbar
    def initialize(display)
       super()
       @display = display
 
-      button = Gtk::Button.new("Step")
+      button = Gtk::ToolButton.new(Gtk::Stock::NEW)
+      button.signal_connect('clicked') { Circuits::Application.new_circuit }
+      self.insert(-1, button)
+
+      button = Gtk::ToolButton.new(Gtk::Stock::OPEN)
+      button.signal_connect('clicked') { Circuits::Application.load_circuit }
+      self.insert(-1, button)
+
+      button = Gtk::ToolButton.new(Gtk::Stock::SAVE)
+      button.signal_connect('clicked') { Circuits::Application.save_circuit }
+      self.insert(-1, button)
+
+      self.insert(-1, Gtk::SeparatorToolItem.new)
+
+
+      button = Gtk::ToolButton.new(Gtk::Stock::GO_FORWARD)
       button.signal_connect('clicked') do
          @display.update
       end
-      button.width_request = 60
       button.tooltip_text = 'Update circuit'
-      self.pack_start(button, false, false)
+      self.insert(-1, button)
 
-      speed = Gtk::SpinButton.new(100, 10000, 1)
+      speed = Gtk::SpinButton.new(10, 10000, 1)
       speed.value = 500
 
       thread = nil
-      button = Gtk::Button.new("Run")
+      button = Gtk::ToggleToolButton.new(Gtk::Stock::MEDIA_PLAY)
       button.signal_connect('clicked') do |button|
          if thread.nil?
-            button.label = "Stop"
+            #button.label = "Stop"
+            button.stock_id = Gtk::Stock::MEDIA_PAUSE
             thread = Thread.new do
                loop do
                   Gtk.queue {@display.update}
@@ -32,34 +49,33 @@ class Menu < Gtk::HBox
                end
             end
          else
-            button.label = "Run"
+            #button.label = "Run"
+            button.stock_id = Gtk::Stock::MEDIA_PLAY
             thread.kill
             thread = nil
          end
       end
-      button.tooltip_text = 'Repeatedly update circuit'
+      button.tooltip_text = 'Run circuit'
       speed.tooltip_text = 'Update speed (ms)'
-      button.width_request = 60
-      speed.width_request = 60
-      self.pack_start(button, false, false)
-      self.pack_start(speed, false, false)
+      self.insert(-1, button)
 
-      sep = Gtk::VSeparator.new
-      sep.width_request = 20
+      speed_item = Gtk::ToolItem.new
+      speed_item.add(speed)
+      self.insert(-1, speed_item)
 
-      self.pack_start(sep, false, false)
+      self.insert(-1, Gtk::SeparatorToolItem.new)
 
       # Change this to add new state buttons
       # Order: Label (String), State (Class), Tooltip text (String)
       states = [
-         ['Create', ClickState::Create,
-            "LMB - Create component\nRMB - Delete component"],
-         ['Wire',   ClickState::Wire,
-            "LMB - Wire input to output\nRMB - Remove input wire"],
-         ['Edit',   ClickState::Edit,
-            "LMB - Change properties"],
-         ['Update', ClickState::Update,
-            "LMB - Update inputs/outputs on selected component"]
+         [Gtk::Stock::ADD, ClickState::Create,
+            "Create\nLMB - Create component\nRMB - Delete component"],
+         [Gtk::Stock::CONNECT, ClickState::Wire,
+            "Wire\nLMB - Wire input to output\nRMB - Remove input wire"],
+         [Gtk::Stock::EDIT,   ClickState::Edit,
+            "Edit\nLMB - Change properties"],
+         [Gtk::Stock::REFRESH, ClickState::Update,
+            "Update\nLMB - Update inputs/outputs on selected component"]
       ]
 
       buttons = []
@@ -68,9 +84,8 @@ class Menu < Gtk::HBox
 
       # This jumbled mess sets up the state buttons
       # All this code is to make sure only one is selected...
-      # DON'T TOUCH THIS!
       states.each_with_index do |state, i|
-         button = Gtk::ToggleButton.new(state[0])
+         button = Gtk::ToggleToolButton.new(state[0])
 
          # Signals - toggled and clicked. Only one can be used at a time
 
@@ -101,13 +116,25 @@ class Menu < Gtk::HBox
          button.signal_handler_block signal unless i == 0
 
          button.tooltip_text = state[2]
-         button.width_request = 60
          buttons << button
-         self.pack_start(button, false, false)
+
+         #button_item = Gtk::ToolItem.new
+         #button_item.add(button)
+         self.insert(-1, button)
       end
 
       # Select first mode
       buttons[0].active = true
+
+
+      #self.insert(-1, Gtk::SeparatorToolItem.new)
+
+      #button = Gtk::ToolButton.new(Gtk::Stock::COPY)
+      #button.signal_connect('clicked') do
+      #   load "#{Dir.pwd}/display/component_display.rb"
+      #   @display.repaint
+      #end
+      #self.insert(-1, button)
    end
 end
 

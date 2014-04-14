@@ -6,6 +6,13 @@ module Circuits
 # Module for boolean logic components
 module Logic
 
+def self.is_false? value
+   value.nil? || value == 0 || value == false
+end
+def self.is_true? value
+   !is_false? value
+end
+
 And = Component.create do
    variable_inputs(2, 10)
    def initialize(circuit, &block)
@@ -14,7 +21,7 @@ And = Component.create do
 
    def update_outputs
       inputs_current.each do |i|
-         if !i or i == 0
+         if Logic.is_false? i
             outputs[0] = false
             return
          end
@@ -31,7 +38,7 @@ Or = Component.create do
 
    def update_outputs
       inputs_current.each do |i|
-         unless !i or i == 0
+         if Logic.is_true? i
             outputs[0] = true
             return
          end
@@ -47,11 +54,9 @@ XOr = Component.create do
    end
    def update_outputs
       ins = inputs_current
-      result = (!ins[0] || ins[0] == 0) ? false : true
+      result = false
       ins.each_with_index do |input, i|
-         next if i == 0
-         val = (!ins[0] || ins[0] == 0) ? false : true
-         result = result ^ val
+         result = result ^ (Logic.is_true? ins[i])
       end
       outputs[0] = result
    end
@@ -78,7 +83,7 @@ XNor = Component.create(XOr) do
    end
 end
 
-Not = Function.create(:!, 0)
+Not = Function.create(lambda { |i| Logic.is_false? i }, 0)
 
 Mux = Component.create do
    variable_inputs(3, 10)
@@ -87,12 +92,7 @@ Mux = Component.create do
    end
 
    def input_label(input)
-      case input
-      when 0
-         "Select"
-      else
-         super(input-1)
-      end
+      input == 0 ? 'sel' : super(input-1)
    end
 
    def update_outputs
@@ -116,12 +116,7 @@ DeMux = Component.create do
    end
 
    def input_label(input)
-      case input
-      when 0
-         "Select"
-      else
-         "In"
-      end
+      input == 0 ? 'sel' : 'in'
    end
 
    def update_outputs

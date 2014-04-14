@@ -7,20 +7,26 @@ module Circuits
 module Display
 
 class ComponentArea < Gtk::Frame
+   GRID_SIZE = 20
    
    def initialize
       super
       @draw_area = Gtk::DrawingArea.new
       @draw_area.set_size_request(500, 500)
       @draw_area.signal_connect('expose_event') do |area, event|
-         redraw(event)
+         redraw(event.area.to_a)
       end
 
       @draw_area.signal_connect('button_press_event') do |*args|
          button_press(*args)
       end
+      @draw_area.signal_connect('motion_notify_event') do |*args|
+         button_move(*args)
+      end
 
-      @draw_area.events |= Gdk::Event::BUTTON_PRESS_MASK
+      @draw_area.events |= Gdk::Event::BUTTON_PRESS_MASK |
+                           Gdk::Event::POINTER_MOTION_MASK |
+                           Gdk::Event::POINTER_MOTION_HINT_MASK
 
       @click_state = ClickState::Create.new(self)
 
@@ -30,21 +36,32 @@ class ComponentArea < Gtk::Frame
 
    def circuit=(circuit)
       @circuit = circuit
-      redraw
+      repaint
    end
    attr_reader :circuit
    attr_accessor :click_state
    attr_accessor :editor
 
-   def redraw(event = nil)
+   def repaint(clip = nil, &block)
+      alloc = @draw_area.allocation
+      if clip.nil?
+         clip = [0, 0, alloc.width, alloc.height]
+      end
+      
+      @redraw_block = block
+      @draw_area.queue_draw_area(*clip)
+   end
+
+   def redraw(clip = nil)
       window = @draw_area.window
       return if window.nil?
 
       cr = window.create_cairo_context
 
-      alloc = self.allocation
-
-      clip = event.nil? ? [0, 0, alloc.width, alloc.height] : event.area.to_a
+      if clip.nil?
+         alloc = @draw_area.allocation
+         clip = [0, 0, alloc.width, alloc.height]
+      end
 
       cr.set_source_rgb(1.0, 1.0, 1.0)
       cr.rectangle *clip
@@ -61,8 +78,14 @@ class ComponentArea < Gtk::Frame
 
       components_draw(cr, clip, :draw)
       components_draw(cr, clip, :draw_wires, false)
-      #components_draw(cr, clip, :draw_values)
-      yield cr if block_given?
+      components_draw(cr, clip, :draw_values)
+
+      unless @redraw_block.nil?
+         cr.save do
+            @redraw_block.call(cr)
+            @redraw_block = nil
+         end
+      end
    end
 
    def component_at(x, y)
@@ -71,13 +94,17 @@ class ComponentArea < Gtk::Frame
 
    def button_press(widget, event)
       @click_state.click(event)
-
+      return true
+   end
+   def button_move(widget, event)
+      win, x, y, state = event.window.pointer
+      @click_state.move(win, x, y, state)
       return true
    end
 
    def snap(x, y)
-      [x.to_i/GRID_SIZE*GRID_SIZE,
-       y.to_i/GRID_SIZE*GRID_SIZE]
+      [(x.to_i+GRID_SIZE/2)/GRID_SIZE*GRID_SIZE,
+       (y.to_i+GRID_SIZE/2)/GRID_SIZE*GRID_SIZE]
    end
 
    
@@ -110,18 +137,17 @@ class ComponentArea < Gtk::Frame
    def update
       return if @circuit.nil?
       @circuit.update
-      redraw
+      repaint
    end
 
    def show_grid=(show)
       return if show == @show_grid
       @show_grid = show
-      redraw
+      repaint
    end
    attr_reader :show_grid
 
 private
-   GRID_SIZE = 16
 
    def components_draw(cr, clip, name, translate = true)
       @circuit.components_within(clip).each do |comp|
@@ -135,10 +161,10 @@ private
    def draw_grid(cr, clip)
       # Optimize this to only iterate where we need to
 
-      alloc = self.allocation
+      alloc = @draw_area.allocation
 
-      w = alloc.width/GRID_SIZE.to_i
-      h = alloc.height/GRID_SIZE.to_i
+      w = alloc.width.to_i/GRID_SIZE+1
+      h = alloc.height.to_i/GRID_SIZE+1
 
       @grid_image ||= Cairo::ImageSurface.from_png('data/grid_cell.png')
       pattern = Cairo::SurfacePattern.new(@grid_image)
@@ -146,11 +172,11 @@ private
       #cr.scale(1 / ::Math.sqrt(2), 1 / ::Math.sqrt(2))
       cr.scale(GRID_SIZE, GRID_SIZE)
 
-      matrix = Cairo::Matrix.scale(GRID_SIZE*w, GRID_SIZE*h)
+      matrix = Cairo::Matrix.scale(GRID_SIZE, GRID_SIZE)
       pattern.set_matrix(matrix)
 
       cr.set_source(pattern)
-      cr.rectangle(0, 0, w+1, h+1)
+      cr.rectangle(0, 0, w, h)
       cr.fill
    end
 end

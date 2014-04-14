@@ -2,7 +2,6 @@ require 'set'
 
 require_relative '../property'
 require_relative '../display/component_display.rb'
-require_relative '../display/wire.rb'
 
 # Add function to resize an array easily
 class Array
@@ -19,19 +18,6 @@ class Array
 end
 
 module Circuits
-
-Connection = Struct.new(:input, :output, :comp_in, :comp_out, :wire)
-class Connection
-   attr_reader :input, :output, :comp_in, :comp_out, :wire
-   def initialize(input, output, comp_in, comp_out, wire)
-      @input = input
-      @output = output
-      @comp_in = comp_in
-      @comp_out = comp_out
-      @wire = wire #Display::Wire.new(comp_in.circuit, comp_in.abs_input_pos(input),
-                   #             comp_out.abs_output_pos(output))
-   end
-end
 
 VarInputsProperty = Property.create("Inputs", Fixnum,
                                     :input_count, :input_count=)
@@ -63,16 +49,17 @@ include Circuits::Display::ComponentDisplay
    attr_reader :circuit
    attr_accessor :position
    attr_accessor :label
+   attr_writer :active
 
    def self.label
       self.name.split('::').last
    end
 
    def input_label(input)
-      input_count == 1 ? "In" : "In#{input+1}"
+      input_count == 1 ? "in" : "in#{input+1}"
    end
    def output_label(output)
-      output_count == 1 ? "Out" : "Out#{output+1}"
+      output_count == 1 ? "out" : "out#{output+1}"
    end
 
    def initialize(inputs, outputs, circuit)
@@ -96,6 +83,8 @@ include Circuits::Display::ComponentDisplay
       circuit.add self if circuit
 
       @position = [0,0]
+
+      @active = true
 
       self.label = self.class.label
 
@@ -122,16 +111,16 @@ include Circuits::Display::ComponentDisplay
    end
 
    def update_next(delay=1)
-      @circuit.update_next(self, delay) if @circuit
+      @circuit.update_next(self, delay) if @circuit && self.active?
    end
    def stop_update
       @circuit.remove_update(self) if @circuit
    end
 
-   def connect_input(input, component, output, wire = nil)
+   def connect_input(conn)
+      input, output, component = conn.input, conn.output, conn.comp_out
       return unless input.between?(0, input_count-1) && output.between?(0, component.output_count-1)
       disconnect_input(input)
-      conn = Connection.new(input, output, self, component, wire)
       in_connections[input] = conn
       component.out_connections[output] << conn
       inputs_next[input] = component.outputs[output]
@@ -167,6 +156,10 @@ include Circuits::Display::ComponentDisplay
       output_count.times do |i|
          disconnect_outputs(i)
       end
+   end
+
+   def active?
+      @active
    end
 
    def self.variable_inputs(min, max, property = true)
@@ -231,7 +224,6 @@ include Circuits::Display::ComponentDisplay
    add_property(Property.new("Label", String, nil, :label, :label=))
 
 private
-
    class Outputs < Array
       def initialize(count, component)
          super(count)
