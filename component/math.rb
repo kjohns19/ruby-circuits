@@ -1,5 +1,4 @@
 require_relative 'function'
-require_relative '../property'
 
 # Main module for all circuit classes
 module Circuits

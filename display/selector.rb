@@ -1,5 +1,4 @@
 require 'gtk2'
-
 require_relative '../component/all_components'
 
 # Main module for all circuit classes
@@ -13,9 +12,11 @@ class Selector < Gtk::ScrolledWindow
    attr_reader :selected
 
    # Initializes a component selector
-   def initialize
-      super
-      self.set_size_request(200, 300)
+   def initialize(app)
+      super()
+      @app = app
+
+      self.set_size_request(200, 250)
       self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
 
       # Get all components

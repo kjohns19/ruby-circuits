@@ -13,44 +13,67 @@ def self.is_true? value
    !is_false? value
 end
 
+BoolType = Property.create('True/False', TrueClass, :use_bool, :use_bool=)
+
 And = Component.create do
    variable_inputs(2, 10)
-   def initialize(circuit, &block)
-      super(2, 1, circuit, &block)
+   add_property(BoolType.new(nil))
+
+   attr_accessor :use_bool
+
+   def initialize(circuit)
+      super(2, 1, circuit) do
+         self.use_bool = true
+         yield self if block_given?
+      end
    end
 
    def update_outputs
       inputs_current.each do |i|
          if Logic.is_false? i
-            outputs[0] = false
+            outputs[0] = use_bool ? false : 0
             return
          end
       end
-      outputs[0] = true
+      outputs[0] = use_bool ? true : 1
    end
 end
 
 Or = Component.create do
    variable_inputs(2, 10)
-   def initialize(circuit, &block)
-      super(2, 1, circuit, &block)
+   add_property(BoolType.new(nil))
+
+   attr_accessor :use_bool
+
+   def initialize(circuit)
+      super(2, 1, circuit) do
+         self.use_bool = true
+         yield self if block_given?
+      end
    end
 
    def update_outputs
       inputs_current.each do |i|
          if Logic.is_true? i
-            outputs[0] = true
+            outputs[0] = use_bool ? true : 1
             return
          end
       end
-      outputs[0] = false
+      outputs[0] = use_bool ? false : 0
    end
 end
 
 XOr = Component.create do
    variable_inputs(2, 10)
-   def initialize(circuit, &block)
-      super(2, 1, circuit, &block)
+   add_property(BoolType.new(nil))
+
+   attr_accessor :use_bool
+
+   def initialize(circuit)
+      super(2, 1, circuit) do
+         self.use_bool = true
+         yield self if block_given?
+      end
    end
    def update_outputs
       ins = inputs_current
@@ -58,28 +81,28 @@ XOr = Component.create do
       ins.each_with_index do |input, i|
          result = result ^ (Logic.is_true? ins[i])
       end
-      outputs[0] = result
+      outputs[0] = use_bool ? result : result ? 1 : 0
    end
 end
 
 Nand = Component.create(And) do
    def update_outputs
       super
-      outputs[0] = !outputs[0]
+      outputs[0] = use_bool ? !outputs[0] : outputs[0] ? 0 : 1
    end
 end
 
 Nor = Component.create(Or) do
    def update_outputs
       super
-      outputs[0] = !outputs[0]
+      outputs[0] = use_bool ? !outputs[0] : outputs[0] ? 0 : 1
    end
 end
 
 XNor = Component.create(XOr) do
    def update_outputs
       super
-      outputs[0] = !outputs[0]
+      outputs[0] = use_bool ? !outputs[0] : outputs[0] ? 0 : 1
    end
 end
 
@@ -127,6 +150,31 @@ DeMux = Component.create do
          outputs[select] = inputs_current[1]
       rescue
 
+      end
+   end
+end
+
+Ternary = Component.create do
+   def initialize(circuit, &block)
+      super(3, 1, circuit, &block)
+   end
+
+   def input_label(input)
+      case input
+      when 0
+         'cond'
+      when 1
+         'if'
+      when 2
+         'else'
+      end
+   end
+
+   def update_outputs
+      if Logic.is_true?(inputs_current[0])
+         outputs[0] = inputs_current[1]
+      else
+         outputs[0] = inputs_current[2]
       end
    end
 end

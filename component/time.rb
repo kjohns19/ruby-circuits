@@ -48,7 +48,7 @@ Clock = Component.create do
       return if time == @on_time
       @on_time = time
       return unless outputs[0]
-      circuit.remove_update self
+      circuit.remove_update self if circuit
       if @last
          @last = @on_time
       else
@@ -59,7 +59,7 @@ Clock = Component.create do
       return if time == @off_time
       @off_time = time
       return if outputs[0]
-      circuit.remove_update self
+      circuit.remove_update self if circuit
       if @last
          @last = @off_time
       else

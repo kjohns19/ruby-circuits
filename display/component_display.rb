@@ -1,5 +1,3 @@
-require 'gtk2'
-
 require_relative 'component_area'
 
 module Circuits
@@ -51,13 +49,17 @@ module ComponentDisplay
             cr.show_text(label)
          end
       end
+      draw_label(cr)
+   end
 
-      #label = self.label
-      #extents = cr.text_extents(label)
-      #x = width/2 - (extents.width/2 + extents.x_bearing)
-      #y = height/2 - (extents.height/2 + extents.y_bearing)
-      #cr.move_to(x, y)
-      #cr.show_text label
+   def draw_label(cr)
+      width, height = self.size
+      label = self.label
+      extents = cr.text_extents(label)
+      x = width/2 - (extents.width/2 + extents.x_bearing)
+      y = 6
+      cr.move_to(x, y)
+      cr.show_text label
    end
 
    def draw_wires(cr)

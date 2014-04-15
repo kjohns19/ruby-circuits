@@ -1,14 +1,5 @@
 require 'gtk2'
 
-class Array
-   def plus(arr)
-      self.zip(arr).map { |a,b| a+b }
-   end
-   def minus(arr)
-      self.zip(arr).map { |a,b| a-b }
-   end
-end
-
 module Circuits
 
 module Display

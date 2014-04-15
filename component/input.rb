@@ -16,9 +16,11 @@ Constant = Component.create do
    end
 
    def values=(values)
-      puts "Hey! #{values.inspect} -> #{output_count}"
       values = values[0...output_count]
-      outputs.replace(values)
+      # We have to do this so the outputs are sent to connected components
+      values.each_with_index do |v, i|
+         outputs[i] = v
+      end
    end
    def values
       Array.new(outputs)

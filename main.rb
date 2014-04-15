@@ -2,4 +2,4 @@
 
 require_relative 'application'
 
-Circuits::Application.start
+Circuits::Application.new.start

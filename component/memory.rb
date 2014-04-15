@@ -16,7 +16,7 @@ DLatch = Component.create do
    end
 
    def input_label(input)
-      input == 0 ? "clk" : "D"
+      input == 0 ? "clk" : "data"
    end
 
    def update_outputs
@@ -39,7 +39,7 @@ DFlipFlop = Component.create do
    end
 
    def input_label(input)
-      input == 0 ? "clk" : "D"
+      input == 0 ? "clk" : "data"
    end
 
    def update_outputs

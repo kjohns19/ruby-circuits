@@ -1,0 +1,6 @@
+require_relative 'click_state'
+require_relative 'component_area'
+require_relative 'component_display'
+require_relative 'component_editor'
+require_relative 'selector'
+require_relative 'wire'

@@ -5,9 +5,10 @@ module Circuits
 module Display
 
 class ComponentEditor < Gtk::ScrolledWindow
-   def initialize
-      super
-      self.set_size_request(200, 200)
+   def initialize(app)
+      super()
+      @app = app
+      self.set_size_request(200, 220)
       self.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
 
       @title = Gtk::Label.new

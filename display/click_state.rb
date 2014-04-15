@@ -7,7 +7,8 @@ module Display
 module ClickState
 
 class Base
-   def initialize(area)
+   def initialize(app, area)
+      @app
       @area = area
    end
 
@@ -28,7 +29,7 @@ class Create < Base
             @area.repaint
          end
       when 3
-         comp = @area.component_at(event.x, event.y)
+         comp = @area.component_at *@area.from_screen(event.x, event.y)
          unless comp.nil?
             comp.delete
             @area.repaint
@@ -50,7 +51,7 @@ class Create < Base
    end
 
    def create_pos(x, y)
-      @area.snap(x, y-ComponentArea::GRID_SIZE)
+      @area.snap *@area.from_screen(x, y-ComponentArea::GRID_SIZE)
    end
 end
 
@@ -60,7 +61,7 @@ class Wire < Base
       when 1
          @area.show_wire_menu(event, true) do |comp, i|
             wire = Circuits::Wire.new(comp, i)
-            @area.click_state = WireIn.new(@area, wire)
+            @area.click_state = WireIn.new(@app, @area, wire)
          end
       when 3
          @area.show_wire_menu(event, true) do |comp, i|
@@ -74,8 +75,8 @@ end
 class WireIn < Base
    attr_reader :wire
 
-   def initialize(area, wire)
-      super(area)
+   def initialize(app, area, wire)
+      super(app, area)
       @wire = wire
    end
 
@@ -86,10 +87,10 @@ class WireIn < Base
             @wire.connect(comp, i)
             @wire.comp_in.connect_input(@wire)
             @area.repaint { |cr| @wire.draw(cr) }
-            @area.click_state = Wire.new(@area)
+            @area.click_state = Wire.new(@app, @area)
          end
          unless valid
-            @wire.add(@area.snap(event.x, event.y))
+            @wire.add(@area.snap *@area.from_screen(event.x, event.y))
             @area.repaint { |cr| @wire.draw(cr) }
          end
       when 3
@@ -100,7 +101,7 @@ class WireIn < Base
 
    def move(window, x, y, state)
       @area.repaint do |cr|
-         @wire.add(@area.snap(x, y))
+         @wire.add(@area.snap *@area.from_screen(x, y))
          @wire.draw(cr)
          @wire.remove
       end
@@ -111,10 +112,10 @@ class Edit < Base
    def click(event)
       return unless event.button == 1
 
-      comp = @area.component_at(event.x, event.y)
+      comp = @area.component_at *@area.from_screen(event.x, event.y)
       return if comp.nil?
 
-      editor = ComponentEditor.new
+      editor = ComponentEditor.new(@app)
       editor.load_properties(comp)
 
       dialog = Gtk::Dialog.new(
@@ -139,12 +140,32 @@ class Update < Base
    def click(event)
       return unless event.button == 1
 
-      comp = @area.component_at(event.x, event.y)
+      comp = @area.component_at *@area.from_screen(event.x, event.y)
       return if comp.nil?
 
       comp.update_inputs
       comp.update_outputs
       @area.repaint
+   end
+end
+
+class Move < Base
+   def click(event)
+      if event.button == 1
+         @mouse = [event.x, event.y]
+         @start_pos = @area.position
+      end
+   end
+
+   def move(window, x, y, state)
+      if (state & Gdk::Window::BUTTON1_MASK) != 0
+         dif = [x-@mouse[0], y-@mouse[1]]
+         @area.position = [@start_pos[0]-dif[0], @start_pos[1]-dif[1]]
+      else
+         @mouse_pos = nil
+         @start_pos = nil
+      end
+
    end
 end
 

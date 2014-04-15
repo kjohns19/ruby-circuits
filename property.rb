@@ -36,7 +36,7 @@ class Property
          value = component.send(@getter)
       rescue Exception => e
          puts "Error calling getter #{@getter} on #{component}"
-         #puts "Error: #{e}"
+         puts "Error: #{e}"
          puts e.backtrace
       end
       value = value.to_s if type == String
@@ -49,7 +49,7 @@ class Property
       component.send(@setter, value)
    rescue Exception => e
       puts "Error calling setter #{@setter} with #{value} on #{component}"
-      #puts "Error: #{e}"
+      puts "Error: #{e}"
       puts e.backtrace
       nil
    end

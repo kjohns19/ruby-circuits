@@ -1,5 +1,3 @@
-require 'gtk2'
-
 require_relative 'click_state.rb'
 
 module Circuits
@@ -9,10 +7,12 @@ module Display
 class ComponentArea < Gtk::Frame
    GRID_SIZE = 20
    
-   def initialize
-      super
+   def initialize(app)
+      super()
+      @app = app
+
       @draw_area = Gtk::DrawingArea.new
-      @draw_area.set_size_request(500, 500)
+      @draw_area.set_size_request(GRID_SIZE*25, GRID_SIZE*25)
       @draw_area.signal_connect('expose_event') do |area, event|
          redraw(event.area.to_a)
       end
@@ -28,7 +28,9 @@ class ComponentArea < Gtk::Frame
                            Gdk::Event::POINTER_MOTION_MASK |
                            Gdk::Event::POINTER_MOTION_HINT_MASK
 
-      @click_state = ClickState::Create.new(self)
+      @click_state = ClickState::Create.new(@app, self)
+
+      @position = [0,0]
 
       self.add(@draw_area)
       self.show_grid = true
@@ -41,6 +43,13 @@ class ComponentArea < Gtk::Frame
    attr_reader :circuit
    attr_accessor :click_state
    attr_accessor :editor
+   attr_reader :position
+
+   def position=(position)
+      return if @position == position
+      @position = position
+      repaint
+   end
 
    def repaint(clip = nil, &block)
       alloc = @draw_area.allocation
@@ -62,16 +71,22 @@ class ComponentArea < Gtk::Frame
          alloc = @draw_area.allocation
          clip = [0, 0, alloc.width, alloc.height]
       end
+      clip[0]+=position[0]
+      clip[1]+=position[1]
 
-      cr.set_source_rgb(1.0, 1.0, 1.0)
-      cr.rectangle *clip
-      cr.fill
+      clip = Gdk::Rectangle.new *clip
+
+      cr.translate -position[0], -position[1]
 
       if @show_grid
          cr.save do
             #cr.translate offset stuff here
             draw_grid(cr, clip)
          end
+      else
+         cr.set_source_rgb(1.0, 1.0, 1.0)
+         cr.rectangle *clip.to_a
+         cr.fill
       end
 
       return if @circuit.nil?
@@ -107,9 +122,13 @@ class ComponentArea < Gtk::Frame
        (y.to_i+GRID_SIZE/2)/GRID_SIZE*GRID_SIZE]
    end
 
+   def from_screen(x, y)
+      [x+position[0], y+position[1]]
+   end
+
    
    def show_wire_menu(event, inputs, &block)
-      comp = component_at(event.x, event.y)
+      comp = component_at *from_screen(event.x, event.y)
       return false if comp.nil?
 
       menu = Gtk::Menu.new
@@ -117,7 +136,7 @@ class ComponentArea < Gtk::Frame
       count, label = inputs ? [comp.input_count, :input_label] :
                                [comp.output_count, :output_label]
 
-      return if count.zero?
+      return false if count.zero?
 
       menu = Gtk::Menu.new
 
@@ -132,12 +151,6 @@ class ComponentArea < Gtk::Frame
       menu.show_all
       menu.popup(nil, nil, event.button, event.time)
       return true
-   end
-
-   def update
-      return if @circuit.nil?
-      @circuit.update
-      repaint
    end
 
    def show_grid=(show)
@@ -159,24 +172,19 @@ private
    end
 
    def draw_grid(cr, clip)
-      # Optimize this to only iterate where we need to
+      w = clip.width.to_i/GRID_SIZE+2
+      h = clip.height.to_i/GRID_SIZE+2
 
-      alloc = @draw_area.allocation
-
-      w = alloc.width.to_i/GRID_SIZE+1
-      h = alloc.height.to_i/GRID_SIZE+1
-
-      @grid_image ||= Cairo::ImageSurface.from_png('data/grid_cell.png')
+      @grid_image = Cairo::ImageSurface.from_png('data/grid_cell.png')
       pattern = Cairo::SurfacePattern.new(@grid_image)
       pattern.set_extend(Cairo::EXTEND_REPEAT)
-      #cr.scale(1 / ::Math.sqrt(2), 1 / ::Math.sqrt(2))
       cr.scale(GRID_SIZE, GRID_SIZE)
 
       matrix = Cairo::Matrix.scale(GRID_SIZE, GRID_SIZE)
       pattern.set_matrix(matrix)
 
       cr.set_source(pattern)
-      cr.rectangle(0, 0, w, h)
+      cr.rectangle clip.x/GRID_SIZE, clip.y/GRID_SIZE, w, h
       cr.fill
    end
 end

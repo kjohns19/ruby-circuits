@@ -1,7 +1,7 @@
 require 'set'
 
 require_relative '../property'
-require_relative '../display/component_display.rb'
+require_relative '../display/component_display'
 
 # Add function to resize an array easily
 class Array
