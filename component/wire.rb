@@ -3,18 +3,27 @@ require 'gtk2'
 module Circuits
 
 class Wire
-   attr_reader :input, :output, :comp_in, :comp_out, :points
+   attr_reader :circuit, :input, :output, :comp_in, :comp_out, :points
+   attr_accessor :id
 
    def initialize(component, input)
       @input = input
       @comp_in = component
       @points = [component.abs_input_pos(input)]
+      @circuit = component.circuit
+      @id = -1
+      @circuit.add_wire self if @circuit
    end
 
    def connect(component, output)
       @output = output
       @comp_out = component
       add(component.abs_output_pos(output))
+      @comp_in.connect_input(self)
+   end
+
+   def delete
+      @circuit.remove_wire self if @circuit
    end
 
    def add(point)
@@ -22,7 +31,7 @@ class Wire
    end
 
    def remove
-      @points.pop if @points.length > 1
+      (@points.pop if @points.length > 1) != nil
    end
 
    def draw(cr)

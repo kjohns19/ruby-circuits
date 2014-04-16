@@ -49,6 +49,7 @@ include Circuits::Display::ComponentDisplay
    attr_reader :circuit
    attr_accessor :position
    attr_accessor :label
+   attr_accessor :id
    attr_writer :active
 
    def self.label
@@ -79,8 +80,10 @@ include Circuits::Display::ComponentDisplay
       @out_connections = Array.new(outputs)
       @out_connections.map! {|x| Set.new }
 
+      @id = -1
+
       @circuit = circuit
-      circuit.add self if circuit
+      circuit.add_component self if circuit
 
       @position = [0,0]
 
@@ -89,7 +92,7 @@ include Circuits::Display::ComponentDisplay
       self.label = self.class.label
 
       yield self if block_given?
-      update_outputs
+      update_outputs if @active
    end
 
    def circuit=(circuit)
@@ -147,7 +150,7 @@ include Circuits::Display::ComponentDisplay
    def delete
       if @circuit
          @circuit.remove_all_updates self
-         @circuit.remove self
+         @circuit.remove_component self
          @circuit = nil
       end
       input_count.times do |i|
@@ -184,7 +187,6 @@ include Circuits::Display::ComponentDisplay
          def output_count=(count)
             return if count == output_count
             return unless count.is_a?(Integer) && count.between?(#{min}, #{max})
-            puts "Setting outputs to \#{count}"
             if count < output_count
                (count...output_count).each { |i| disconnect_outputs(i) }
                @out_connections.resize(count)

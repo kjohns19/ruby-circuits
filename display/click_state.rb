@@ -51,7 +51,7 @@ class Create < Base
    end
 
    def create_pos(x, y)
-      @area.snap *@area.from_screen(x, y-ComponentArea::GRID_SIZE)
+      @area.snap_from_screen(x, y-ComponentArea::GRID_SIZE)
    end
 end
 
@@ -85,23 +85,26 @@ class WireIn < Base
       when 1
          valid = @area.show_wire_menu(event, false) do |comp, i|
             @wire.connect(comp, i)
-            @wire.comp_in.connect_input(@wire)
             @area.repaint { |cr| @wire.draw(cr) }
             @area.click_state = Wire.new(@app, @area)
          end
          unless valid
-            @wire.add(@area.snap *@area.from_screen(event.x, event.y))
+            @wire.add(@area.snap_from_screen(event.x, event.y))
             @area.repaint { |cr| @wire.draw(cr) }
          end
       when 3
-         @wire.remove
-         @area.repaint { |cr| @wire.draw(cr) }
+         if @wire.remove
+            @area.repaint { |cr| @wire.draw(cr) }
+         else
+            @area.click_state = Wire.new(@app, @area)
+            @area.repaint
+         end
       end
    end
 
    def move(window, x, y, state)
       @area.repaint do |cr|
-         @wire.add(@area.snap *@area.from_screen(x, y))
+         @wire.add(@area.snap_from_screen(x, y))
          @wire.draw(cr)
          @wire.remove
       end

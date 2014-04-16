@@ -126,6 +126,10 @@ class ComponentArea < Gtk::Frame
       [x+position[0], y+position[1]]
    end
 
+   def snap_from_screen(x, y)
+      self.snap *self.from_screen(x, y)
+   end
+
    
    def show_wire_menu(event, inputs, &block)
       comp = component_at *from_screen(event.x, event.y)

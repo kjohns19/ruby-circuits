@@ -4,6 +4,7 @@ require_relative 'gtk_threads'
 
 require_relative 'circuit'
 require_relative 'display/all_display'
+require_relative 'serialize/serializer'
 
 module Circuits
 
@@ -107,13 +108,19 @@ class Application
    end
 
    def new_circuit
-      message "New not implemented!"
+      @circuit = Circuit.new
+      @display.circuit = @circuit
    end
    def load_circuit
-      message "Load not implemented!"
+      file = Serializer.show_open_dialog
+      unless file.nil?
+         @circuit = Serializer.load_circuit(file)
+         @display.circuit = @circuit
+      end
    end
    def save_circuit
-      message "Save not implemented!"
+      file = Serializer.show_save_dialog
+      Serializer.save_circuit(@circuit, file) unless file.nil?
    end
 
    def tool=(tool)
@@ -122,25 +129,21 @@ class Application
       button.active = true
    end
 
-   def message(text)
+   def message(text, type = Gtk::MessageDialog::INFO, buttons = Gtk::MessageDialog::BUTTONS_CLOSE)
       dialog = Gtk::MessageDialog.new(@window,
                                       Gtk::Dialog::DESTROY_WITH_PARENT,
-                                      Gtk::MessageDialog::INFO,
-                                      Gtk::MessageDialog::BUTTONS_CLOSE,
-                                      text)
-      dialog.signal_connect('response') do |widget, response|
-         widget.destroy
-      end
-
-      dialog.show
+                                      type, buttons, text)
+      response = dialog.run
+      dialog.destroy
+      return response
    end
 
 private
    def setup_stocks
       stocks = [
          [STOCK_TOOL_CREATE, '_Create', Gtk::Stock::ADD],
-         [STOCK_TOOL_WIRE, '_Wire', Gtk::Stock::CONNECT],
-         [STOCK_TOOL_EDIT, '_Edit', Gtk::Stock::EDIT],
+         [STOCK_TOOL_WIRE, '_Wire', Gtk::Stock::EDIT],
+         [STOCK_TOOL_EDIT, '_Edit', Gtk::Stock::FILE],
          [STOCK_TOOL_UPDATE, '_Update', Gtk::Stock::REFRESH],
          [STOCK_TOOL_MOVE, '_Move', Gtk::Stock::FULLSCREEN]
       ]
@@ -278,7 +281,7 @@ private
          [TOOL_UPDATE, STOCK_TOOL_UPDATE, Circuits::Display::ClickState::Update,
             "Update\nLMB - Update inputs/outputs on selected component"],
          [TOOL_MOVE, STOCK_TOOL_MOVE, Circuits::Display::ClickState::Move,
-            "Update\nLMB - Pan screen"]
+            "Move\nLMB - Pan screen"]
       ]
 
       buttons = []

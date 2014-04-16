@@ -1,5 +1,3 @@
-require 'set'
-
 # Main module for all circuit classes
 module Circuits
 
@@ -8,11 +6,17 @@ module Circuits
 # based on the previous update.
 class Circuit
    attr_reader :components
+   attr_reader :wires
 
    # Initializes a new circuit
    def initialize
-      @components = Set.new
+      @components = []
+      @wires = []
       @update_map = {}
+   end
+
+   def updates
+      @update_map
    end
 
    # Updates the inputs and outputs of all components that requested an update
@@ -71,14 +75,21 @@ class Circuit
    end
 
    # Adds a component to the circuit
-   def add(component)
-      @components << component
+   def add_component(component)
+      add_to(component, @components)
    end
 
    # Removes a component from the circuit
-   def remove(component)
+   def remove_component(component)
       remove_all_updates component
-      @components.delete component
+      remove_from(component, @components)
+   end
+
+   def add_wire(wire)
+      add_to(wire, @wires)
+   end
+   def remove_wire(wire)
+      remove_from(wire, @wires)
    end
 
    def component_at(x, y)
@@ -95,6 +106,17 @@ class Circuit
       components.select do |comp|
          (Gdk::Rectangle.new(*comp.bounds) & rect) != nil
       end
+   end
+private
+   def add_to(object, list)
+      object.id = list.size
+      list << object
+   end
+   def remove_from(object, list)
+      id = object.id
+      list.last.id = id
+      list[id], list[-1] = list[-1], list[id]
+      list.pop
    end
 end
 
