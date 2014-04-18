@@ -20,15 +20,20 @@ class ComponentArea < Gtk::Frame
       @draw_area.signal_connect('button_press_event') do |*args|
          button_press(*args)
       end
+      @draw_area.signal_connect('button_release_event') do |*args|
+         button_release(*args)
+      end
       @draw_area.signal_connect('motion_notify_event') do |*args|
          button_move(*args)
       end
 
       @draw_area.events |= Gdk::Event::BUTTON_PRESS_MASK |
+                           Gdk::Event::BUTTON_RELEASE_MASK |
                            Gdk::Event::POINTER_MOTION_MASK |
                            Gdk::Event::POINTER_MOTION_HINT_MASK
 
       @click_state = ClickState::Create.new(@app, self)
+      @run_state = ClickState::Run.new(@app, self)
 
       @position = [0,0]
 
@@ -44,6 +49,7 @@ class ComponentArea < Gtk::Frame
    attr_accessor :click_state
    attr_accessor :editor
    attr_reader :position
+   attr_accessor :running
 
    def position=(position)
       return if @position == position
@@ -66,10 +72,11 @@ class ComponentArea < Gtk::Frame
       return if window.nil?
 
       cr = window.create_cairo_context
+      cr.scale(GRID_SIZE, GRID_SIZE)
 
       if clip.nil?
          alloc = @draw_area.allocation
-         clip = [0, 0, alloc.width, alloc.height]
+         clip = [0, 0, alloc.width/GRID_WIDTH, alloc.height/GRID_WIDTH]
       end
       clip[0]+=position[0]
       clip[1]+=position[1]
@@ -108,22 +115,38 @@ class ComponentArea < Gtk::Frame
    end
 
    def button_press(widget, event)
-      @click_state.click(event)
+      if running
+         @run_state.click(event)
+      else
+         @click_state.click(event)
+      end
+      return true
+   end
+   def button_release(widget, event)
+      if running
+         @run_state.release(event)
+      else
+         @click_state.release(event)
+      end
       return true
    end
    def button_move(widget, event)
       win, x, y, state = event.window.pointer
-      @click_state.move(win, x, y, state)
+      if running
+         @run_state.move(win, x, y, state)
+      else
+         @click_state.move(win, x, y, state)
+      end
       return true
    end
 
    def snap(x, y)
-      [(x.to_i+GRID_SIZE/2)/GRID_SIZE*GRID_SIZE,
-       (y.to_i+GRID_SIZE/2)/GRID_SIZE*GRID_SIZE]
+      [(x.to_f+0.5).floor,
+       (y.to_f+0.5).floor]
    end
 
    def from_screen(x, y)
-      [x+position[0], y+position[1]]
+      [x.to_f/GRID_SIZE+position[0], y.to_f/GRID_SIZE+position[1]]
    end
 
    def snap_from_screen(x, y)
@@ -176,19 +199,16 @@ private
    end
 
    def draw_grid(cr, clip)
-      w = clip.width.to_i/GRID_SIZE+2
-      h = clip.height.to_i/GRID_SIZE+2
 
       @grid_image = Cairo::ImageSurface.from_png('data/grid_cell.png')
       pattern = Cairo::SurfacePattern.new(@grid_image)
       pattern.set_extend(Cairo::EXTEND_REPEAT)
-      cr.scale(GRID_SIZE, GRID_SIZE)
 
       matrix = Cairo::Matrix.scale(GRID_SIZE, GRID_SIZE)
       pattern.set_matrix(matrix)
 
       cr.set_source(pattern)
-      cr.rectangle clip.x/GRID_SIZE, clip.y/GRID_SIZE, w, h
+      cr.rectangle clip.x-1, clip.y-1, clip.width, clip.height
       cr.fill
    end
 end

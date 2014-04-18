@@ -23,6 +23,7 @@ class Selector < Gtk::ScrolledWindow
       @groups = Group.new
       all = ObjectSpace.each_object(Class).select { |k| k < Circuits::Component }
       all.each do |klass|
+         next if klass.name.nil?
          names = klass.name.split('::')
          names.shift
          add_to_group(@groups, names, klass)

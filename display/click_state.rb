@@ -1,4 +1,5 @@
 require_relative '../component/wire'
+require_relative 'component_area'
 
 module Circuits
 
@@ -8,19 +9,60 @@ module ClickState
 
 class Base
    def initialize(app, area)
-      @app
+      @app = app
       @area = area
    end
 
    def click(event)
+      if event.button == 2
+         @mouse = get_pos(event.x, event.y)
+         @start_pos = @area.position
+      end
+   end
+
+   def release(event)
    end
 
    def move(window, x, y, state)
+      pos = @area.snap_from_screen(x, y)
+      @app.status = "%s - (%d, %d)" % [self.class.name.split("::").last, *pos]
+      return if @start_pos.nil?
+      if (state & Gdk::Window::BUTTON2_MASK) != 0
+         pos = get_pos(x, y)
+         dif = [pos[0]-@mouse[0], pos[1]-@mouse[1]]
+         @area.position = [@start_pos[0]-dif[0], @start_pos[1]-dif[1]]
+      else
+         @mouse_pos = nil
+         @start_pos = nil
+      end
+   end
+   def get_pos(x, y)
+      [x.to_f/Display::ComponentArea::GRID_SIZE, y.to_f/Display::ComponentArea::GRID_SIZE]
+   end
+
+end
+
+class Run < Base
+   def initialize(app, area)
+      super
+      @comps = {}
+   end
+   def click(event)
+      super
+      comp = @area.component_at *@area.from_screen(event.x, event.y)
+      comp.click(event.button) if comp
+      @comps[event.button] = comp
+   end
+
+   def release(event)
+      comp = @comps.delete(event.button)
+      comp.release(event.button) if comp
    end
 end
 
 class Create < Base
    def click(event)
+      super
       case event.button
       when 1
          @comp = @area.editor.create_component(@area.circuit)
@@ -38,6 +80,7 @@ class Create < Base
    end
 
    def move(window, x, y, state)
+      super
       return if @comp.nil?
       if (state & Gdk::Window::BUTTON1_MASK) != 0
          newpos = create_pos(x, y)
@@ -57,6 +100,7 @@ end
 
 class Wire < Base
    def click(event)
+      super
       case event.button
       when 1
          @area.show_wire_menu(event, true) do |comp, i|
@@ -81,6 +125,7 @@ class WireIn < Base
    end
 
    def click(event)
+      super
       case event.button
       when 1
          valid = @area.show_wire_menu(event, false) do |comp, i|
@@ -103,6 +148,7 @@ class WireIn < Base
    end
 
    def move(window, x, y, state)
+      super
       @area.repaint do |cr|
          @wire.add(@area.snap_from_screen(x, y))
          @wire.draw(cr)
@@ -113,6 +159,7 @@ end
 
 class Edit < Base
    def click(event)
+      super
       return unless event.button == 1
 
       comp = @area.component_at *@area.from_screen(event.x, event.y)
@@ -141,6 +188,7 @@ end
 
 class Update < Base
    def click(event)
+      super
       return unless event.button == 1
 
       comp = @area.component_at *@area.from_screen(event.x, event.y)
@@ -152,23 +200,16 @@ class Update < Base
    end
 end
 
-class Move < Base
+class Debug < Base
    def click(event)
-      if event.button == 1
-         @mouse = [event.x, event.y]
-         @start_pos = @area.position
-      end
-   end
+      super
+      return unless event.button == 1
 
-   def move(window, x, y, state)
-      if (state & Gdk::Window::BUTTON1_MASK) != 0
-         dif = [x-@mouse[0], y-@mouse[1]]
-         @area.position = [@start_pos[0]-dif[0], @start_pos[1]-dif[1]]
-      else
-         @mouse_pos = nil
-         @start_pos = nil
-      end
+      comp = @area.component_at *@area.from_screen(event.x, event.y)
+      return if comp.nil?
 
+      comp.debug = !comp.debug
+      @area.repaint
    end
 end
 

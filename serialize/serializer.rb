@@ -10,11 +10,13 @@ class Serializer
          f.each_line { |l| lines << l }
       end
       deserialize_circuit(lines)
+   rescue
+      nil
    end
 
-   def self.show_open_dialog
+   def self.show_open_dialog(title = "Load Circuit")
       dialog = Gtk::FileChooserDialog.new(
-                     "Load Circuit", @window,
+                     title, @window,
                      Gtk::FileChooser::ACTION_OPEN, nil,
                      [Gtk::Stock::CANCEL, Gtk::Dialog::RESPONSE_CANCEL],
                      [Gtk::Stock::OPEN, Gtk::Dialog::RESPONSE_ACCEPT])
@@ -29,9 +31,9 @@ class Serializer
       end
    end
 
-   def self.show_save_dialog
+   def self.show_save_dialog(title = "Save Circuit")
       dialog = Gtk::FileChooserDialog.new(
-                     "Save Circuit", @window,
+                     title, @window,
                      Gtk::FileChooser::ACTION_SAVE, nil,
                      [Gtk::Stock::CANCEL, Gtk::Dialog::RESPONSE_CANCEL],
                      [Gtk::Stock::SAVE, Gtk::Dialog::RESPONSE_ACCEPT])
@@ -43,17 +45,8 @@ class Serializer
                file = dialog.filename
 
                if File.exists? file
-                  overwrite = true
-                  message = Gtk::MessageDialog.new(
-                              @window, Gtk::Dialog::DESTROY_WITH_PARENT,
-                              Gtk::MessageDialog::QUESTION,
-                              Gtk::MessageDialog::BUTTONS_YES_NO,
-                              "File exists. Overwrite?")
-                  message.run do |response|
-                     overwrite = (response == Gtk::Dialog::RESPONSE_YES)
-                     message.destroy
-                  end
-                  next unless overwrite
+                  response = Application.question("File exists. Overwrite?")
+                  next unless response == Gtk::Dialog::RESPONSE_YES
                end
 
                dialog.destroy
@@ -116,7 +109,6 @@ private
    def self.deserialize_circuit(lines)
       circuit = Circuit.new
 
-
       line_num = 0
       loop do
          break if line_num >= lines.length
@@ -138,13 +130,13 @@ private
             read = 1
          else
             puts "Error: Invalid line \"#{line}\""
-            line_num+=1
-            read = nil
+            return nil
          end
          line_num+=read unless read.nil?
       end
 
       circuit.components.each { |c| c.active = true }
+      circuit.changed = false
 
       return circuit
    end
@@ -164,7 +156,6 @@ private
 
       lines[1..-1].each do |line|
          break if ended
-         puts "Reading: #{line}"
          case line
          when /\s*end\s*$/
             ended = true

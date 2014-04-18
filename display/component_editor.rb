@@ -40,7 +40,6 @@ class ComponentEditor < Gtk::ScrolledWindow
       @accessors.each do |arr|
          property = arr[2]
          value = property.get(component)
-         puts "Value is #{value.inspect}"
          property.set(@instance, value)
          arr[1].call(value)
       end

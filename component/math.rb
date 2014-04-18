@@ -12,14 +12,23 @@ Subtract = BinaryOperator.create(:-)
 Multiply = BinaryOperator.create(:*)
 Divide   = BinaryOperator.create(:/)
 Modulus  = BinaryOperator.create(:%)
-Power    = BinaryOperator.create(:**)
-Root     = Function.create(Proc.new { |a, b| a**(1.0/b) }, 2)
+Power    = BinaryOperator.create(:**) do
+   def input_label(i)
+      i == 0 ? 'value' : 'exp'
+   end
+end
+Root     = Function.create(lambda { |a, b| a**(1.0/b) }, 2) do
+   def input_label(i)
+      i == 0 ? 'value' : 'root'
+   end
+end
 Log = Function.create(lambda do |x, base|
+         puts "Hey! X = #{x}, B = #{base}"
          return Math.log(x) if base.nil?
          return Math.log(x, base)
       end, 2) do
    def input_label(i)
-      i == 0 ? 'in' : 'base'
+      i == 0 ? 'value' : 'base'
    end
 end
 
@@ -35,7 +44,11 @@ Tan  = Function.create(::Math.method(:tan), 1)
 ASin = Function.create(::Math.method(:asin), 1)
 ACos = Function.create(::Math.method(:acos), 1)
 ATan = Function.create(::Math.method(:atan), 1)
-ATan2= Function.create(::Math.method(:atan2), 2)
+ATan2= Function.create(::Math.method(:atan2), 2) do
+   def input_label(i)
+      i == 0 ? 'x' : 'y'
+   end
+end
 
 Sinh  = Function.create(::Math.method(:sinh), 1)
 Cosh  = Function.create(::Math.method(:cosh), 1)

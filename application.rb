@@ -13,13 +13,8 @@ class Application
    STOCK_TOOL_WIRE   = :circuit_tool_wire
    STOCK_TOOL_EDIT   = :circuit_tool_edit
    STOCK_TOOL_UPDATE = :circuit_tool_update
-   STOCK_TOOL_MOVE   = :circuit_tool_move
-
-   TOOL_CREATE = :create
-   TOOL_WIRE   = :wire
-   TOOL_EDIT   = :edit
-   TOOL_UPDATE = :update
-   TOOL_MOVE   = :move
+   STOCK_TOOL_DEBUG  = :circuit_tool_debug
+   STOCK_IMPORT      = :circuit_import
 
    def initialize
       setup_stocks
@@ -44,7 +39,7 @@ class Application
 
       menu = create_menu(@window)
       toolmenu = create_toolbar
-      statusbar = Gtk::Statusbar.new
+      @statusbar = Gtk::Statusbar.new
 
       vpaned = Gtk::VPaned.new
       vpaned.pack1(@selector, true, false)
@@ -58,7 +53,7 @@ class Application
       table.attach(menu, 0, 1, 0, 1, Gtk::EXPAND | Gtk::FILL, 0, 0, 0)
       table.attach(toolmenu, 0, 1, 1, 2, Gtk::EXPAND | Gtk::FILL, 0, 0, 0)
       table.attach(hpaned, 0, 1, 2, 3, Gtk::EXPAND | Gtk::FILL, Gtk::EXPAND | Gtk::FILL, 0, 0)
-      table.attach(statusbar, 0, 1, 3, 4, Gtk::EXPAND | Gtk::FILL, 0, 0, 0)
+      table.attach(@statusbar, 0, 1, 3, 4, Gtk::EXPAND | Gtk::FILL, 0, 0, 0)
 
       @window.add(table)
 
@@ -83,12 +78,15 @@ class Application
       @run_button.stock_id = Gtk::Stock::MEDIA_PAUSE
       @speed_button.sensitive = false
       @step_button.sensitive = false
+      @tool_buttons.each_value { |b| b.sensitive = false }
+      @menu_tool_buttons.each_value { |b| b.sensitive = false }
       @run_thread = Thread.new do
          loop do
             Gtk.queue { step_update }
             sleep(speed/1000.0)
          end
       end
+      @display.running = true
    end
 
    def stop_update
@@ -98,6 +96,17 @@ class Application
       @run_button.stock_id = Gtk::Stock::MEDIA_PLAY
       @speed_button.sensitive = true
       @step_button.sensitive = true
+      @tool_buttons.each_value { |b| b.sensitive = true }
+      @menu_tool_buttons.each_value { |b| b.sensitive = true }
+      @display.running = false
+   end
+
+   def toggle_update(speed)
+      if @run_thread.nil?
+         run_update(speed)
+      else
+         stop_update
+      end
    end
 
    def undo
@@ -108,28 +117,100 @@ class Application
    end
 
    def new_circuit
+      if @circuit.changed?
+         response = Application.question("Unsaved changes will be lost. Continue?")
+         return unless response == Gtk::Dialog::RESPONSE_YES
+      end
       @circuit = Circuit.new
       @display.circuit = @circuit
+      @file = nil
+      change_title
    end
    def load_circuit
+      if @circuit.changed?
+         response = Application.question("Unsaved changes will be lost. Continue?")
+         return unless response == Gtk::Dialog::RESPONSE_YES
+      end
       file = Serializer.show_open_dialog
       unless file.nil?
-         @circuit = Serializer.load_circuit(file)
-         @display.circuit = @circuit
+         circuit = Serializer.load_circuit(file)
+         if circuit
+            @circuit = circuit
+            @display.circuit = @circuit
+            @file = file
+            change_title
+         else
+            Application.message("An error occurred while loading the file",
+                                Gtk::MessageDialog::ERROR)
+         end
+      end
+   end
+   def import_circuit
+      file = Serializer.show_open_dialog("Import Circuit")
+      unless file.nil?
+         circuit = Serializer.load_circuit(file)
+         if circuit
+            @circuit.import(circuit)
+            @display.repaint
+         else
+            Application.message("An error occurred while loading the file",
+                                Gtk::MessageDialog::ERROR)
+         end
       end
    end
    def save_circuit
+      if @file.nil?
+         save_circuit_as
+      else
+         Serializer.save_circuit(@circuit, @file)
+         @circuit.changed = false
+      end
+   end
+   def save_circuit_as
       file = Serializer.show_save_dialog
       Serializer.save_circuit(@circuit, file) unless file.nil?
+      @circuit.changed = false
+      @file = file
+      change_title
+   end
+
+   def status=(text)
+      @status_id ||= @statusbar.get_context_id("application")
+      @statusbar.pop(@status_id)
+      @statusbar.push(@status_id, text)
+   end
+
+   def change_title
+      if @file.nil?
+         str = "Untitled"
+      else
+         file = File::basename(@file)
+         folder = File::dirname(@file)
+         if folder.length > 50
+            folder.reverse!
+            i=0
+            loop do
+               n = folder.index(File::SEPARATOR, i)
+               break if n.nil? || n > 50
+               i = n+1
+            end
+            folder = folder[0,i] + "..."
+            folder.reverse!
+         end
+         str = "#{file} (#{folder})"
+      end
+      @window.title = "#{str} - Circuits"
    end
 
    def tool=(tool)
-      button = @tool_button[tool]
-      return if info.nil?
-      button.active = true
+      button = @tool_buttons[tool]
+      button.active = true unless button.nil? || button.active?
+      button = @menu_tool_buttons[tool]
+      button.active = true unless button.nil? || button.active?
+      @display.click_state = tool.new(self, @display)
    end
 
-   def message(text, type = Gtk::MessageDialog::INFO, buttons = Gtk::MessageDialog::BUTTONS_CLOSE)
+   def self.message(text, type = Gtk::MessageDialog::INFO, buttons = Gtk::MessageDialog::BUTTONS_CLOSE)
       dialog = Gtk::MessageDialog.new(@window,
                                       Gtk::Dialog::DESTROY_WITH_PARENT,
                                       type, buttons, text)
@@ -137,15 +218,19 @@ class Application
       dialog.destroy
       return response
    end
+   def self.question(text, buttons = Gtk::MessageDialog::BUTTONS_YES_NO)
+      message(text, Gtk::MessageDialog::QUESTION, buttons)
+   end
 
 private
    def setup_stocks
       stocks = [
          [STOCK_TOOL_CREATE, '_Create', Gtk::Stock::ADD],
-         [STOCK_TOOL_WIRE, '_Wire', Gtk::Stock::EDIT],
-         [STOCK_TOOL_EDIT, '_Edit', Gtk::Stock::FILE],
+         [STOCK_TOOL_WIRE,   '_Wire',   Gtk::Stock::EDIT],
+         [STOCK_TOOL_EDIT,   '_Edit',   Gtk::Stock::PROPERTIES],
          [STOCK_TOOL_UPDATE, '_Update', Gtk::Stock::REFRESH],
-         [STOCK_TOOL_MOVE, '_Move', Gtk::Stock::FULLSCREEN]
+         [STOCK_TOOL_DEBUG,  '_Debug',  Gtk::Stock::INFO],
+         [STOCK_IMPORT,      '_Import', Gtk::Stock::JUMP_TO]
       ]
 
       factory = Gtk::IconFactory.new
@@ -160,6 +245,19 @@ private
    end
 
    def create_menu(window)
+
+      # Function to create Proc that sets the tool
+      tool_proc = lambda do |tool|
+         return proc do |data, widget|
+            self.tool = tool if widget.active?
+         end
+      end
+      tools = [
+         Circuits::Display::ClickState::Create, Circuits::Display::ClickState::Wire,
+         Circuits::Display::ClickState::Edit,   Circuits::Display::ClickState::Update,
+         Circuits::Display::ClickState::Debug
+      ]
+
       items = [
          ['/_File'],
          ['/_File/_New', '<StockItem>', '<control>N',
@@ -172,163 +270,105 @@ private
          ['/_File/_Quit', '<StockItem>', '<control>Q',
             Gtk::Stock::QUIT, proc { self.exit }],
 
-         ['/_Tool']
+         ['/_Tool'],
+         ['/_Tool/_Create',  '<RadioItem>', nil, nil, tool_proc.call(tools[0])],
+         ['/_Tool/_Wire',   '/Tool/Create', nil, nil, tool_proc.call(tools[1])],
+         ['/_Tool/_Edit',   '/Tool/Create', nil, nil, tool_proc.call(tools[2])],
+         ['/_Tool/_Update', '/Tool/Create', nil, nil, tool_proc.call(tools[3])],
+         ['/_Tool/_Debug',  '/Tool/Create', nil, nil, tool_proc.call(tools[4])],
       ]
       accel_group = Gtk::AccelGroup.new
       window.add_accel_group(accel_group)
 
       factory = Gtk::ItemFactory.new(Gtk::ItemFactory::TYPE_MENU_BAR, '<main>', accel_group)
       factory.create_items(items)
+      @menu_tool_buttons = {}
+      factory.get_widget('/Tool').children.each_with_index do |b, i|
+         @menu_tool_buttons[tools[i]] = b
+      end
       return factory.get_widget('<main>')
    end
 
    def create_toolbar
       toolbar = Gtk::Toolbar.new
 
-      # New button
-      button = Gtk::ToolButton.new(Gtk::Stock::NEW)
-      button.signal_connect('clicked') { self.new_circuit }
-      button.tooltip_text = 'New circuit'
-      toolbar.insert(-1, button)
-
-      # Load button
-      button = Gtk::ToolButton.new(Gtk::Stock::OPEN)
-      button.signal_connect('clicked') { self.load_circuit }
-      button.tooltip_text = 'Load circuit'
-      toolbar.insert(-1, button)
-
-      # Save button
-      button = Gtk::ToolButton.new(Gtk::Stock::SAVE)
-      button.signal_connect('clicked') { self.save_circuit }
-      button.tooltip_text = 'Save circuit'
-      toolbar.insert(-1, button)
-
-      # Separator
-      toolbar.insert(-1, Gtk::SeparatorToolItem.new)
-
-
-      # Undo
-      button = Gtk::ToolButton.new(Gtk::Stock::UNDO)
-      button.signal_connect('clicked') { self.undo }
-      button.tooltip_text = 'Undo'
-      button.sensitive = false
-      @undo_button = button
-      toolbar.insert(-1, button)
-
-      # Redo
-      button = Gtk::ToolButton.new(Gtk::Stock::REDO)
-      button.signal_connect('clicked') { self.redo }
-      button.tooltip_text = 'Redo'
-      button.sensitive = false
-      @redo_button = button
-      toolbar.insert(-1, button)
-
-      # Separator
-      toolbar.insert(-1, Gtk::SeparatorToolItem.new)
-
-
-      # Step button
-      button = Gtk::ToolButton.new(Gtk::Stock::MEDIA_FORWARD)
-      button.signal_connect('clicked') do
-         self.step_update
-      end
-      button.tooltip_text = 'Update circuit'
-      @step_button = button
-      toolbar.insert(-1, button)
-
       # Update speed spinner
       speed = Gtk::SpinButton.new(10, 10000, 1)
       speed.value = 500
       speed.tooltip_text = 'Update speed (ms)'
       @speed_button = speed
-
-      # Run button
-      running = false
-      button = Gtk::ToggleToolButton.new(Gtk::Stock::MEDIA_PLAY)
-      button.signal_connect('clicked') do |button|
-         if running
-            #button.label = "Run"
-            button.stock_id = Gtk::Stock::MEDIA_PLAY
-            self.stop_update
-         else
-            #button.label = "Stop"
-            button.stock_id = Gtk::Stock::MEDIA_PAUSE
-            self.run_update(speed.value)
-         end
-         running = !running
-      end
-      button.tooltip_text = 'Run circuit'
-      @run_button = button
-      toolbar.insert(-1, button)
-
       speed_item = Gtk::ToolItem.new
       speed_item.add(speed)
-      toolbar.insert(-1, speed_item)
 
-      toolbar.insert(-1, Gtk::SeparatorToolItem.new)
+      buttons = [
+         # New, Load, and Save
+         [Gtk::Stock::NEW, proc { self.new_circuit }, 'New circuit'],
+         [STOCK_IMPORT, proc { self.import_circuit }, 'Import circuit'],
+         [Gtk::Stock::OPEN, proc { self.load_circuit }, 'Open circuit'],
+         [Gtk::Stock::SAVE, proc { self.save_circuit }, 'Save circuit'],
+
+         [Gtk::SeparatorToolItem.new],
+
+         # Undo / Redo
+         [Gtk::Stock::UNDO, proc { self.undo }, 'Undo', proc { |b| b.sensitive = false }],
+         [Gtk::Stock::REDO, proc { self.redo }, 'Redo', proc { |b| b.sensitive = false }],
+
+         [Gtk::SeparatorToolItem.new],
+
+         # Step, Run, and Speed
+         [Gtk::Stock::MEDIA_FORWARD, proc { self.step_update }, 'Update circuit',
+               proc { |b| @step_button = b }],
+         [Gtk::Stock::MEDIA_PLAY, proc { self.toggle_update(speed.value) },
+               'Run circuit', proc { |b| @run_button = b }],
+         [speed_item],
+
+         [Gtk::SeparatorToolItem.new],
+      ]
+
+      buttons.each do |(stock, func, tooltip, block)|
+         if func.nil?
+            toolbar.insert(-1, stock)
+         else
+            button = Gtk::ToolButton.new(stock)
+            button.signal_connect('clicked', &func)
+            button.tooltip_text = tooltip
+            block.call(button) if block
+            toolbar.insert(-1, button)
+         end
+      end
 
       @tool_buttons = {}
 
       # Change this to add new state buttons
       # Order: Label (String), State (Class), Tooltip text (String)
       states = [
-         [TOOL_CREATE, STOCK_TOOL_CREATE, Circuits::Display::ClickState::Create,
+         [STOCK_TOOL_CREATE, Circuits::Display::ClickState::Create,
             "Create\nLMB - Create component\nRMB - Delete component"],
-         [TOOL_WIRE, STOCK_TOOL_WIRE, Circuits::Display::ClickState::Wire,
+         [STOCK_TOOL_WIRE, Circuits::Display::ClickState::Wire,
             "Wire\nLMB - Wire input to output\nRMB - Remove input wire"],
-         [TOOL_EDIT, STOCK_TOOL_EDIT,   Circuits::Display::ClickState::Edit,
+         [STOCK_TOOL_EDIT,   Circuits::Display::ClickState::Edit,
             "Edit\nLMB - Change properties"],
-         [TOOL_UPDATE, STOCK_TOOL_UPDATE, Circuits::Display::ClickState::Update,
+         [STOCK_TOOL_UPDATE, Circuits::Display::ClickState::Update,
             "Update\nLMB - Update inputs/outputs on selected component"],
-         [TOOL_MOVE, STOCK_TOOL_MOVE, Circuits::Display::ClickState::Move,
-            "Move\nLMB - Pan screen"]
+         [STOCK_TOOL_DEBUG, Circuits::Display::ClickState::Debug,
+            "Debug\nLMB - Toggle showing inputs/outputs"]
       ]
 
       buttons = []
       toggle_ids = []
       click_ids = []
 
-      # This jumbled mess sets up the state buttons
-      # All this code is to make sure only one is selected...
-      states.each_with_index do |(tool, id, state, text), i|
-         button = Gtk::ToggleToolButton.new(id)
+      states.each_with_index do |(id, state, text), i|
+         button = Gtk::RadioToolButton.new(buttons[0], id)
 
-         # Signals - toggled and clicked. Only one can be used at a time
-
-         # Signal that selects the state
-         # This deselects the previous button and selects this one
-         signal = button.signal_connect('toggled') do |button|
-            buttons.each_with_index do |b, j|
-               next unless b.active? && b != button
-               b.signal_handler_block click_ids[j]
-               b.active = false
-               b.signal_handler_unblock toggle_ids[j]
-            end
-            button.signal_handler_block toggle_ids[i]
-            button.signal_handler_unblock click_ids[i]
-            @display.click_state = state.new(self, @display)
+         button.signal_connect('toggled') do |button|
+            self.tool = state if button.active?
          end
-         toggle_ids << signal
-         # This signal is blocked by selected button
-         button.signal_handler_block signal if i == 0
-
-         # Signal that ensures the selected button is still selected
-         # Even when clicked again
-         signal = button.signal_connect('clicked') do |button|
-            button.active = true
-         end
-         click_ids << signal
-         # This signal is blocked by all buttons except the one selected
-         button.signal_handler_block signal unless i == 0
-
          button.tooltip_text = text
          buttons << button
 
-         #button_item = Gtk::ToolItem.new
-         #button_item.add(button)
          toolbar.insert(-1, button)
-
-         @tool_buttons[tool] = button
+         @tool_buttons[state] = button
       end
 
       # Select first mode

@@ -5,17 +5,21 @@ module Circuits
 module Display
 
 module ComponentDisplay
-   WIDTH = ComponentArea::GRID_SIZE*3
-   PORT_SEP = ComponentArea::GRID_SIZE
-   PORT_OFFSET = ComponentArea::GRID_SIZE
-   PORT_RADIUS = 3.0
-   PORT_INSET = 0
-   RECT_RADIUS = ComponentArea::GRID_SIZE/2
-   RECT_OFFSET = ComponentArea::GRID_SIZE/2
+   WIDTH       = 3
+   PORT_SEP    = 1
+   PORT_OFFSET = 1
+   PORT_RADIUS = 0.15
+   PORT_INSET  = 0
+   RECT_RADIUS = 0.25
+   RECT_OFFSET = 0.7
+   LINE_WIDTH  = 0.1
+
+   attr_accessor :debug
 
    def draw(cr)
       width, height = self.size
 
+      cr.set_line_width(LINE_WIDTH)
       cr.set_source_rgb(1.0, 1.0, 1.0)
       cr.rounded_rectangle(0, RECT_OFFSET,
                            width, height-2*RECT_OFFSET,
@@ -38,12 +42,12 @@ module ComponentDisplay
             cr.circle(pos[0], pos[1], PORT_RADIUS)
             cr.stroke
 
-            cr.set_font_size 10
+            cr.set_font_size 0.5
             cr.set_source_rgb(0.0, 0.0, 0.0)
             label = self.send("#{pref}_label", i)
             extents = cr.text_extents(label)
-            x = label_move ? (pos[0]+6) : (pos[0]-6-extents.width)
-            y = pos[1]+3
+            x = label_move ? (pos[0]+0.3) : (pos[0]-0.3-extents.width)
+            y = pos[1]+0.15
 
             cr.move_to(x,y)
             cr.show_text(label)
@@ -56,8 +60,8 @@ module ComponentDisplay
       width, height = self.size
       label = self.label
       extents = cr.text_extents(label)
-      x = width/2 - (extents.width/2 + extents.x_bearing)
-      y = 6
+      x = width/2.0 - (extents.width/2 + extents.x_bearing)
+      y = 0.5
       cr.move_to(x, y)
       cr.show_text label
    end
@@ -71,14 +75,17 @@ module ComponentDisplay
    end
 
    def draw_values(cr)
+      return unless self.debug
+
+      cr.set_font_size(0.5)
       draw = lambda do |pos, i, values, move_text|
          text = self.send(values)[i].inspect
          
          extents = cr.text_extents(text)
-         x = move_text ? (pos[0]-10-extents.width) : (pos[0]+10)
+         x = move_text ? (pos[0]-0.5-extents.width) : (pos[0]+0.5)
          y = pos[1] - (extents.height/2 + extents.y_bearing)
 
-         b = 3
+         b = 0.15
          cr.set_source_rgb(0.9, 0.9, 0.9)
          cr.rectangle(x-b, y-extents.height-b,
                         extents.width+extents.x_bearing+b*2, extents.height+b*2)

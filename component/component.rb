@@ -98,10 +98,10 @@ include Circuits::Display::ComponentDisplay
    def circuit=(circuit)
       if @circuit
          @circuit.remove_all_updates self
-         @circuit.remove self
+         @circuit.remove_component self
       end
       @circuit = circuit
-      circuit.add self if circuit
+      circuit.add_component self if circuit
    end
 
    def update_inputs
@@ -146,6 +146,22 @@ include Circuits::Display::ComponentDisplay
          conn.comp_in.disconnect_input(conn.input)
       end
    end
+
+   def click(button)
+   end
+   def release(button)
+   end
+
+   # TODO: Get this to work - will have to change around wires a bit
+#   def rewire_input(from, to)
+#      return if from == to
+#      return unless from.between?(0, input_count-1) && to.between?(0, input_count-1)
+#
+#      conn = in_connections[from]
+#      disconnect_input(from)
+#      disconnect_input(to)
+#
+#   end
 
    def delete
       if @circuit

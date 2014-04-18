@@ -3,16 +3,27 @@ require 'gtk2'
 module Circuits
 
 class Wire
-   attr_reader :circuit, :input, :output, :comp_in, :comp_out, :points
+   attr_reader :input, :output, :comp_in, :comp_out, :points
    attr_accessor :id
 
    def initialize(component, input)
       @input = input
       @comp_in = component
       @points = [component.abs_input_pos(input)]
-      @circuit = component.circuit
       @id = -1
-      @circuit.add_wire self if @circuit
+      component.circuit.add_wire self if component.circuit
+   end
+
+   def position
+      @points.first
+   end
+   def position=(position)
+      mypos = self.position
+      diff = [position[0]-mypos[0], position[1]-mypos[1]]
+      move(diff)
+   end
+   def move(amount)
+      @points.map! {|a| [amount[0]+a[0], amount[1]+a[1]] }
    end
 
    def connect(component, output)
@@ -23,7 +34,7 @@ class Wire
    end
 
    def delete
-      @circuit.remove_wire self if @circuit
+      @comp_in.circuit.remove_wire self if @comp_in.circuit
    end
 
    def add(point)
@@ -38,15 +49,16 @@ class Wire
       cr.set_source_rgb(0.0, 0.0, 0.0)
       cr.set_line_cap(Cairo::LINE_CAP_ROUND)
       cr.set_line_join(Cairo::LINE_JOIN_ROUND)
+      cr.set_line_width(0.1)
 
-      cr.circle *points.first, 2
+      cr.circle *points.first, 0.1
       cr.fill
 
       cr.move_to *points.first
       points[1..-1].each { |p| cr.line_to *p }
       cr.stroke
 
-      cr.circle *points.last, 2
+      cr.circle *points.last, 0.1
       cr.fill
    end
 end

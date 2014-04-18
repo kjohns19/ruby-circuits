@@ -7,16 +7,55 @@ module Circuits
 class Circuit
    attr_reader :components
    attr_reader :wires
+   attr_writer :changed
+   
+   def changed?
+      @changed
+   end
 
    # Initializes a new circuit
    def initialize
       @components = []
       @wires = []
       @update_map = {}
+      @changed = false
    end
 
    def updates
       @update_map
+   end
+
+   # Imports components and wires from the given circuit into this one
+   # The other circuit will be cleared
+   def import(circuit)
+      puts "Merging: #{circuit.components.length} components. #{circuit.wires.length} wires"
+
+      #circuit.components.each { |c| self.add_component c }
+      circuit.wires.each { |w| self.add_wire w }
+
+      circuit.updates.each do |delay, set|
+         myset = @update_map[delay]
+         if myset.nil?
+            @update_map[delay] = set
+         else
+            myset.merge(set)
+         end
+      end
+      circuit.updates.clear
+
+
+      # Set each component's circuit to self
+      # This must be done after getting updates
+      circuit.components.clone.each do |c|
+         puts "No! #{c}"
+         c.circuit = self
+      end
+
+      circuit.components.clear
+      circuit.wires.clear
+      circuit.changed = true
+
+      self.components.each { |c| puts c }
    end
 
    # Updates the inputs and outputs of all components that requested an update
@@ -37,6 +76,8 @@ class Circuit
       update_set.each do |component|
          component.update_outputs
       end
+
+      self.changed = true
    end
 
    # Adds a component to be updated after the given amount of time
@@ -111,12 +152,14 @@ private
    def add_to(object, list)
       object.id = list.size
       list << object
+      self.changed = true
    end
    def remove_from(object, list)
       id = object.id
       list.last.id = id
       list[id], list[-1] = list[-1], list[id]
       list.pop
+      self.changed = true
    end
 end
 
