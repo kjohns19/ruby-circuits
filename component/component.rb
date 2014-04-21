@@ -136,6 +136,7 @@ include Circuits::Display::ComponentDisplay
       conn.comp_out.out_connections[conn.output].delete(conn)
       inputs_next[input] = nil
       in_connections[input] = nil
+      conn.delete
    end
 
    def disconnect_outputs(output)
@@ -163,11 +164,14 @@ include Circuits::Display::ComponentDisplay
 #
 #   end
 
+   def translate(amount)
+      self.position = [self.position[0]+amount[0], self.position[1]+amount[1]]
+   end
+
    def delete
       if @circuit
          @circuit.remove_all_updates self
          @circuit.remove_component self
-         @circuit = nil
       end
       input_count.times do |i|
          disconnect_input(i)
@@ -175,6 +179,7 @@ include Circuits::Display::ComponentDisplay
       output_count.times do |i|
          disconnect_outputs(i)
       end
+      @circuit = nil
    end
 
    def active?

@@ -33,6 +33,10 @@ class Wire
       @comp_in.connect_input(self)
    end
 
+   def translate(amount)
+      points.map! { |p| [p[0]+amount[0], p[1]+amount[1]] }
+   end
+
    def delete
       @comp_in.circuit.remove_wire self if @comp_in.circuit
    end
@@ -46,7 +50,12 @@ class Wire
    end
 
    def draw(cr)
-      cr.set_source_rgb(0.0, 0.0, 0.0)
+      if comp_in.circuit.nil?
+         puts "Why am I nil?"
+         puts self
+         exit
+      end
+      cr.set_source_rgb(*color)
       cr.set_line_cap(Cairo::LINE_CAP_ROUND)
       cr.set_line_join(Cairo::LINE_JOIN_ROUND)
       cr.set_line_width(0.1)
@@ -60,6 +69,14 @@ class Wire
 
       cr.circle *points.last, 0.1
       cr.fill
+   end
+
+   def color
+      return [0, 0, 0] if comp_out.nil?
+      value = comp_out.outputs[output]
+      return [1, 0, 0] if value == false
+      return [0, 1, 0] if value == true
+      return [0, 0, 0]
    end
 end
 

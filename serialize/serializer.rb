@@ -95,15 +95,29 @@ private
 
       str+="end\n"
       return str
+   rescue Exception => e
+      puts "An error occurred while serializing component"
+      puts "Error: #{e}"
+      puts e.backtrace
+      return "COMPONENT ERROR HERE\n"
    end
 
    def self.serialize_wire(wire)
-      str = "wire #{wire.comp_in.id}:#{wire.input} #{wire.comp_out.id}:#{wire.output}\n"
+      str = "wire #{wire.comp_in.id}:#{wire.input} #{wire.comp_out.id}:#{wire.output}"
+
       wire.points[1..-2].each do |(x, y)|
-         str+= "   (#{x} #{y})\n"
+         str+= " (#{x} #{y})"
       end
-      str+="end\n"
+      str+="\n"
       return str
+   rescue Exception => e
+      puts "An error occurred while serializing wire"
+      puts "Error: #{e}"
+      puts e.backtrace
+      puts "Wire: #{wire}"
+      puts "#{wire.comp_in.inspect}:#{wire.input} #{wire.comp_out.inspect}:#{wire.output}"
+      puts "Points: #{wire.points}"
+      return "WIRE ERROR HERE\n"
    end
 
    def self.deserialize_circuit(lines)
@@ -120,7 +134,8 @@ private
          when /^component/
             component, read = deserialize_component(lines[line_num..-1], circuit)
          when /^wire/
-            wire, read = deserialize_wire(lines[line_num..-1], circuit)
+            wire = deserialize_wire(line, circuit)
+            read = 1
          when /^update/
             split = line.split
             delay = split[1].to_i
@@ -184,38 +199,24 @@ private
       return nil, 1
    end
 
-   def self.deserialize_wire(lines, circuit)
-      match = lines[0].match /^\s*wire (?<in_id>\d+):(?<in>\d+)\s+(?<out_id>\d+):(?<out>\d+)$/
-      return nil, 1 if match.nil?
+   def self.deserialize_wire(line, circuit)
+      match = line.match(
+         /^\s*wire (?<in_id>\d+):(?<in>\d+)\s+(?<out_id>\d+):(?<out>\d+)(?:\s+(?<points>.*))?$/)
+      return nil if match.nil?
 
       comp_in = circuit.components[match[:in_id].to_i]
       comp_out = circuit.components[match[:out_id].to_i]
 
       wire = Circuits::Wire.new(comp_in, match[:in].to_i)
-      
-      ended = false
 
-      read = 1
-
-      lines[1..-1].each do |line|
-         break if ended
-         case line
-         when /^\s*end\s*$/
-            ended = true
-         when /^\s*\((\d+)\s+(\d+)\)\s*$/
-            x = $1.to_i
-            y = $2.to_i
-            wire.add([x,y])
-         else
-            puts "Error: Invalid line while reading wire \"#{line}\""
-         end
-         read+=1
+      match[:points].scan(/\((-?\d+)\s+(-?\d+)\)/).each do |x, y|
+         x = x.to_i
+         y = y.to_i
+         wire.add([x, y])
       end
+
       wire.connect(comp_out, match[:out].to_i)
-      unless ended
-         puts "Expected end while reading wire"
-      end
-      return wire, read
+      return wire
    rescue Exception => e
       puts "An error occurred while deserializing wire"
       puts "Error: #{e}"

@@ -1,4 +1,5 @@
 require 'gtk2'
+require_relative '../util/evaluate'
 
 module Circuits
 
@@ -153,14 +154,7 @@ private
          widget.xalign = 0
          getter = lambda do
             str = widget.text.strip
-            return nil if str.empty?
-            return str[1..-2] if str =~ /^".*"$/
-            return str[1..-1].to_sym if str =~ /^:.+$/
-            return Integer(str) if str =~ /^\d+$/
-            return Float(str) if str =~ /^\d*\.\d+/ || str =~ /^\d+\.$/
-            return true if str == 'true'
-            return false if str == 'false'
-            return nil
+            Evaluate.eval(str)
          end
          setter = lambda do |val|
             if val.nil?
@@ -169,6 +163,8 @@ private
                str = val.is_a?(String) ? "\"#{val}\"" :
                      val.is_a?(Symbol) ? ":#{val}" :
                      val.to_s
+               str.gsub!("\n", "\\n")
+               str.gsub!("\t", "\\t")
             end
             widget.text = str
          end

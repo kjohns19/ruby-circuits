@@ -22,6 +22,13 @@ class Application
 
       @window.resizable = true
       @window.border_width = 4
+      @window.signal_connect('delete_event') do
+         if @circuit.changed?
+            response = Application.question("Really quit? Unsaved changes will be lost")
+            next true unless response == Gtk::Dialog::RESPONSE_YES
+         end
+         false
+      end
       @window.signal_connect('destroy') { Gtk.main_quit }
 
       @selector = Circuits::Display::Selector.new(self)
@@ -137,6 +144,7 @@ class Application
          if circuit
             @circuit = circuit
             @display.circuit = @circuit
+            @display.position = @circuit.center
             @file = file
             change_title
          else
@@ -150,7 +158,7 @@ class Application
       unless file.nil?
          circuit = Serializer.load_circuit(file)
          if circuit
-            @circuit.import(circuit)
+            @circuit.import(circuit, @display.position)
             @display.repaint
          else
             Application.message("An error occurred while loading the file",
@@ -266,6 +274,8 @@ private
             Gtk::Stock::OPEN, proc { self.load_circuit }],
          ['/_File/_Save', '<StockItem>', '<control>S',
             Gtk::Stock::SAVE, proc { self.save_circuit }],
+         ['/_File/Save _As', '<StockItem>', '<shift><control>S',
+            Gtk::Stock::SAVE_AS, proc { self.save_circuit_as }],
          ['/_File/sep', '<Separator>', nil, nil, nil],
          ['/_File/_Quit', '<StockItem>', '<control>Q',
             Gtk::Stock::QUIT, proc { self.exit }],
@@ -303,10 +313,11 @@ private
       buttons = [
          # New, Load, and Save
          [Gtk::Stock::NEW, proc { self.new_circuit }, 'New circuit'],
-         [STOCK_IMPORT, proc { self.import_circuit }, 'Import circuit'],
          [Gtk::Stock::OPEN, proc { self.load_circuit }, 'Open circuit'],
          [Gtk::Stock::SAVE, proc { self.save_circuit }, 'Save circuit'],
 
+         [Gtk::SeparatorToolItem.new],
+         [STOCK_IMPORT, proc { self.import_circuit }, 'Import circuit'],
          [Gtk::SeparatorToolItem.new],
 
          # Undo / Redo
@@ -325,7 +336,7 @@ private
          [Gtk::SeparatorToolItem.new],
       ]
 
-      buttons.each do |(stock, func, tooltip, block)|
+      buttonproc = proc do |(stock, func, tooltip, block)|
          if func.nil?
             toolbar.insert(-1, stock)
          else
@@ -336,6 +347,8 @@ private
             toolbar.insert(-1, button)
          end
       end
+      
+      buttons.each(&buttonproc)
 
       @tool_buttons = {}
 
@@ -354,37 +367,29 @@ private
             "Debug\nLMB - Toggle showing inputs/outputs"]
       ]
 
-      buttons = []
-      toggle_ids = []
-      click_ids = []
-
+      button = nil
       states.each_with_index do |(id, state, text), i|
-         button = Gtk::RadioToolButton.new(buttons[0], id)
+         button = Gtk::RadioToolButton.new(button, id)
 
          button.signal_connect('toggled') do |button|
             self.tool = state if button.active?
          end
          button.tooltip_text = text
-         buttons << button
 
          toolbar.insert(-1, button)
          @tool_buttons[state] = button
+
+         # Select first tool
+         button.active = true if i.zero?
       end
 
-      # Select first mode
-      buttons[0].active = true
+      buttons = [
+         [Gtk::SeparatorToolItem.new],
+         [Gtk::Stock::ZOOM_OUT, proc { @display.grid_size/=2 }, 'Zoom Out'],
+         [Gtk::Stock::ZOOM_IN, proc { @display.grid_size*=2 }, 'Zoom In'],
+      ]
 
-      sep = Gtk::SeparatorToolItem.new
-      sep.draw = false
-      sep.expand = true
-      toolbar.insert(-1, sep)
-
-      #button = Gtk::ToolButton.new(nil, 'load')
-      #button.signal_connect('clicked') do
-      #   load 'display/component_display.rb'
-      #   @display.repaint
-      #end
-      #toolbar.insert(-1, button)
+      buttons.each(&buttonproc)
 
       toolbar.show_arrow = false
       #toolbar.toolbar_style = Gtk::Toolbar::Style::BOTH

@@ -37,7 +37,7 @@ class Base
       end
    end
    def get_pos(x, y)
-      [x.to_f/Display::ComponentArea::GRID_SIZE, y.to_f/Display::ComponentArea::GRID_SIZE]
+      [x.to_f/@area.grid_size, y.to_f/@area.grid_size]
    end
 
 end
@@ -94,7 +94,7 @@ class Create < Base
    end
 
    def create_pos(x, y)
-      @area.snap_from_screen(x, y-ComponentArea::GRID_SIZE)
+      @area.snap_from_screen(x, y-@area.grid_size)
    end
 end
 
@@ -141,6 +141,7 @@ class WireIn < Base
          if @wire.remove
             @area.repaint { |cr| @wire.draw(cr) }
          else
+            @wire.delete
             @area.click_state = Wire.new(@app, @area)
             @area.repaint
          end

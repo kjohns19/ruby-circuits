@@ -1,18 +1,36 @@
 require_relative 'click_state.rb'
+require_relative '../util/rectangle'
 
 module Circuits
 
 module Display
 
 class ComponentArea < Gtk::Frame
-   GRID_SIZE = 20
+   GRID_MAX = 40
+   GRID_MIN = 5
+
+   attr_reader :circuit
+   attr_accessor :click_state
+   attr_accessor :editor
+   attr_reader :position
+   attr_accessor :running
+   attr_reader :grid_size
+
+   def grid_size=(size)
+      return unless size.between?(GRID_MIN, GRID_MAX) && size != @grid_size
+      @grid_size = size
+      @grid_image = nil
+      repaint
+   end
    
    def initialize(app)
       super()
       @app = app
 
+      @grid_size = 20
+
       @draw_area = Gtk::DrawingArea.new
-      @draw_area.set_size_request(GRID_SIZE*25, GRID_SIZE*25)
+      @draw_area.set_size_request(500, 500)
       @draw_area.signal_connect('expose_event') do |area, event|
          redraw(event.area.to_a)
       end
@@ -45,11 +63,6 @@ class ComponentArea < Gtk::Frame
       @circuit = circuit
       repaint
    end
-   attr_reader :circuit
-   attr_accessor :click_state
-   attr_accessor :editor
-   attr_reader :position
-   attr_accessor :running
 
    def position=(position)
       return if @position == position
@@ -72,22 +85,19 @@ class ComponentArea < Gtk::Frame
       return if window.nil?
 
       cr = window.create_cairo_context
-      cr.scale(GRID_SIZE, GRID_SIZE)
+      cr.scale(grid_size.to_f, grid_size.to_f)
 
-      if clip.nil?
-         alloc = @draw_area.allocation
-         clip = [0, 0, alloc.width/GRID_WIDTH, alloc.height/GRID_WIDTH]
-      end
-      clip[0]+=position[0]
-      clip[1]+=position[1]
+      clip[2]/=grid_size.to_f
+      clip[3]/=grid_size.to_f
+      clip[0]+=position[0]-clip[2]/2.0
+      clip[1]+=position[1]-clip[3]/2.0
 
-      clip = Gdk::Rectangle.new *clip
+      clip = Rectangle.new *clip
+      cr.translate -clip.x, -clip.y
 
-      cr.translate -position[0], -position[1]
 
       if @show_grid
          cr.save do
-            #cr.translate offset stuff here
             draw_grid(cr, clip)
          end
       else
@@ -95,6 +105,16 @@ class ComponentArea < Gtk::Frame
          cr.rectangle *clip.to_a
          cr.fill
       end
+
+      # Draw axes
+      #cr.set_source_rgb(0.9, 0.9, 0.9)
+      #cr.set_line_width(0.1)
+      #cr.move_to 0, clip.y
+      #cr.line_to 0, clip.y+clip.width
+      #cr.stroke
+      #cr.move_to clip.x, 0
+      #cr.line_to clip.x+clip.width, 0
+      #cr.stroke
 
       return if @circuit.nil?
 
@@ -146,7 +166,9 @@ class ComponentArea < Gtk::Frame
    end
 
    def from_screen(x, y)
-      [x.to_f/GRID_SIZE+position[0], y.to_f/GRID_SIZE+position[1]]
+      alloc = @draw_area.allocation
+      [(x.to_f-alloc.width/2.0)/grid_size+position[0],
+       (y.to_f-alloc.height/2.0)/grid_size+position[1]]
    end
 
    def snap_from_screen(x, y)
@@ -199,16 +221,36 @@ private
    end
 
    def draw_grid(cr, clip)
+      if @grid_image.nil?
+         begin
+            # Load the correct image
+            @grid_image = Cairo::ImageSurface.from_png("data/grid_cell_#{grid_size}.png")
+         rescue
+            # If the image isn't found, we must make our own
+            @grid_image = Cairo::ImageSurface.new(grid_size, grid_size)
+            g = Cairo::Context.new(@grid_image)
+            g.set_source_rgb(1, 1, 1)
+            g.rectangle(0, 0, grid_size, grid_size)
+            g.fill
+            g.set_source_rgb(0.9, 0.9, 0.9)
+            g.move_to(0, 0)
+            g.line_to(grid_size, 0)
+            g.stroke
+            g.move_to(0, 0)
+            g.line_to(0, grid_size)
+            g.stroke
+         end
+      end
 
-      @grid_image = Cairo::ImageSurface.from_png('data/grid_cell.png')
+
       pattern = Cairo::SurfacePattern.new(@grid_image)
       pattern.set_extend(Cairo::EXTEND_REPEAT)
 
-      matrix = Cairo::Matrix.scale(GRID_SIZE, GRID_SIZE)
+      matrix = Cairo::Matrix.scale(grid_size, grid_size)
       pattern.set_matrix(matrix)
 
       cr.set_source(pattern)
-      cr.rectangle clip.x-1, clip.y-1, clip.width, clip.height
+      cr.rectangle clip.x-1, clip.y-1, clip.width+2, clip.height+2
       cr.fill
    end
 end

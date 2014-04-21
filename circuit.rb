@@ -1,3 +1,5 @@
+require_relative 'util/rectangle'
+
 # Main module for all circuit classes
 module Circuits
 
@@ -8,6 +10,7 @@ class Circuit
    attr_reader :components
    attr_reader :wires
    attr_writer :changed
+   attr_reader :time
    
    def changed?
       @changed
@@ -19,6 +22,7 @@ class Circuit
       @wires = []
       @update_map = {}
       @changed = false
+      @time = 0
    end
 
    def updates
@@ -27,11 +31,15 @@ class Circuit
 
    # Imports components and wires from the given circuit into this one
    # The other circuit will be cleared
-   def import(circuit)
-      puts "Merging: #{circuit.components.length} components. #{circuit.wires.length} wires"
+   def import(circuit, position = [0, 0])
+      center = circuit.center
+      diff = [(position[0]-center[0]).round, (position[1]-center[1]).round]
 
       #circuit.components.each { |c| self.add_component c }
-      circuit.wires.each { |w| self.add_wire w }
+      circuit.wires.each do |w|
+         w.translate(diff)
+         self.add_wire w
+      end
 
       circuit.updates.each do |delay, set|
          myset = @update_map[delay]
@@ -47,19 +55,18 @@ class Circuit
       # Set each component's circuit to self
       # This must be done after getting updates
       circuit.components.clone.each do |c|
-         puts "No! #{c}"
+         c.translate(diff)
          c.circuit = self
       end
 
       circuit.components.clear
       circuit.wires.clear
       circuit.changed = true
-
-      self.components.each { |c| puts c }
    end
 
    # Updates the inputs and outputs of all components that requested an update
    def update
+      @time+=1
       temp_map = {}
       @update_map.each { |k, v| temp_map[k-1] = v }
       @update_map = temp_map
@@ -143,10 +150,22 @@ class Circuit
    end
 
    def components_within(rect)
-      rect = Gdk::Rectangle.new(*rect) if rect.is_a? Array
       components.select do |comp|
-         (Gdk::Rectangle.new(*comp.bounds) & rect) != nil
+         (Rectangle.new(*comp.bounds).intersects? rect) != nil
       end
+   end
+
+   def center
+      rect = Rectangle.new(0, 0, 0, 0)
+      components.each_with_index do |comp, i|
+         if i == 0
+            rect = Rectangle.new(*comp.bounds)
+         else
+            rect = rect.union(*comp.bounds)
+         end
+      end
+
+      return rect.center
    end
 private
    def add_to(object, list)

@@ -23,16 +23,23 @@ Delay = Component.create do
    end
 
    def update_outputs
+      return if circuit.nil?
+      time = circuit.time
       if inputs_current[0] != inputs_old[0]
-         delay = @values.empty? ? @delay : @delay-@values[0][1]
          val = inputs_current[0]
-         update_next delay if @values.empty?
-         @values << [val, delay]
-      else
+         @values << [val, time+@delay]
+         if @values.length == 1
+            update_next @delay
+         end
+      end
+      return if @values.empty?
+      if @values[0][1] <= time
          arr = @values.shift
          return unless arr
          outputs[0] = arr[0]
-         update_next @values[0][1] unless @values.empty?
+         unless @values.empty?
+            update_next(@values[0][1]-time)
+         end
       end
    end
 end
