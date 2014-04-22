@@ -3,9 +3,9 @@ require_relative '../util/evaluate'
 
 module Circuits
 
-module Display
+module Gui
 
-class ComponentEditor < Gtk::ScrolledWindow
+class Editor < Gtk::ScrolledWindow
    def initialize(app)
       super()
       @app = app

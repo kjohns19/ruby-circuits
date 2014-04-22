@@ -106,21 +106,17 @@ class ComponentArea < Gtk::Frame
          cr.fill
       end
 
-      # Draw axes
-      #cr.set_source_rgb(0.9, 0.9, 0.9)
-      #cr.set_line_width(0.1)
-      #cr.move_to 0, clip.y
-      #cr.line_to 0, clip.y+clip.width
-      #cr.stroke
-      #cr.move_to clip.x, 0
-      #cr.line_to clip.x+clip.width, 0
-      #cr.stroke
-
       return if @circuit.nil?
 
       components_draw(cr, clip, :draw)
-      components_draw(cr, clip, :draw_wires, false)
+      #components_draw(cr, clip, :draw_wires, false)
       components_draw(cr, clip, :draw_values)
+
+      @circuit.wires.each do |wire|
+         cr.save do
+            wire.draw(cr)
+         end
+      end
 
       unless @redraw_block.nil?
          cr.save do

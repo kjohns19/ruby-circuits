@@ -15,6 +15,7 @@ module ComponentDisplay
    LINE_WIDTH  = 0.1
 
    attr_accessor :debug
+   attr_accessor :invert
 
    def draw(cr)
       width, height = self.size
@@ -30,7 +31,7 @@ module ComponentDisplay
 
       cr.select_font_face('Arial', 'normal', 'bold')
 
-      funcs = [['input', true], ['output', false]]
+      funcs = [['input', !invert], ['output', invert]]
 
       funcs.each do |(pref, label_move)|
          self.send("#{pref}_count").times do |i|
@@ -66,14 +67,6 @@ module ComponentDisplay
       cr.show_text label
    end
 
-   def draw_wires(cr)
-      cr.set_source_rgb(0.0, 0.0, 0.0)
-      cr.set_line_cap(Cairo::LINE_CAP_ROUND)
-      self.in_connections.each do |conn|
-         conn.draw(cr) unless conn.nil?
-      end
-   end
-
    def draw_values(cr)
       return unless self.debug
 
@@ -96,8 +89,8 @@ module ComponentDisplay
          cr.show_text text
       end
 
-      input_ports_each { |pos, i| draw.call(pos, i, :inputs_current, true) }
-      output_ports_each{ |pos, i| draw.call(pos, i, :outputs, false) }
+      input_ports_each { |pos, i| draw.call(pos, i, :inputs_current, !invert) }
+      output_ports_each{ |pos, i| draw.call(pos, i, :outputs, invert) }
    end
 
    def input_ports_each
@@ -124,11 +117,11 @@ module ComponentDisplay
    end
 
    def input_pos(input)
-      [PORT_INSET, PORT_OFFSET + PORT_SEP*input]
+      [invert ? (WIDTH-PORT_INSET) : PORT_INSET, PORT_OFFSET + PORT_SEP*input]
    end
 
    def output_pos(output)
-      [WIDTH-PORT_INSET, PORT_OFFSET + PORT_SEP*output]
+      [invert ? PORT_INSET : WIDTH-PORT_INSET, PORT_OFFSET + PORT_SEP*output]
    end
 
    def abs_input_pos(input)

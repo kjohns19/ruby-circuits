@@ -4,8 +4,8 @@ require_relative '../component/all_components'
 # Main module for all circuit classes
 module Circuits
 
-# Module for display classes
-module Display
+# Module for gui classes
+module Gui
 
 # GTK component to select circuit components
 class Selector < Gtk::ScrolledWindow

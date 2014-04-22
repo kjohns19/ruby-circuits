@@ -137,7 +137,6 @@ class BinaryOperator < Component
       super(2, 1, circuit) do
          self.function = :+
          self.use_clone = false
-         self.label = "BinaryOp" if self.class == BinaryOperator
          yield self if block_given?
       end
    end

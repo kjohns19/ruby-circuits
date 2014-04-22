@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
 
-require_relative 'application'
+require_relative 'gui/application'
 
-Circuits::Application.new.start
+Circuits::Gui::Application.new.start

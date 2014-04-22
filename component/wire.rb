@@ -50,11 +50,6 @@ class Wire
    end
 
    def draw(cr)
-      if comp_in.circuit.nil?
-         puts "Why am I nil?"
-         puts self
-         exit
-      end
       cr.set_source_rgb(*color)
       cr.set_line_cap(Cairo::LINE_CAP_ROUND)
       cr.set_line_join(Cairo::LINE_JOIN_ROUND)
